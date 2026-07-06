@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Environment scaffold for Horen Check frontend, backend, and DB services.",
+  "workspaces": [
+    "functions"
+  ],
   "scripts": {
     "dev": "node scripts/run-stack.js local",
     "prod": "node scripts/run-stack.js production",
@@ -13,10 +16,19 @@
     "prod:api": "node apps/api/src/server.js production",
     "prod:db": "node apps/db-emulator/src/server.js production",
     "test": "node --test apps/**/*.test.js",
+    "test:all": "npm test && npm run test:functions && npm run test:rules",
+    "test:functions": "npm --workspace horen-check-functions run build && npm --workspace horen-check-functions test",
+    "test:functions:emulator": "node scripts/check-functions-emulator.js",
+    "test:rules": "node --test tests/rules/**/*.test.js",
     "smoke:local": "node scripts/smoke-test.js local",
     "smoke:production": "node scripts/smoke-test.js production"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.2",
+    "firebase-tools": "^13.29.1"
   }
 }
