@@ -1,0 +1,89 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f7f8fa;
+  color: #17324d;
+}
+
+body {
+  margin: 0;
+}
+
+.shell {
+  margin: 0 auto;
+  max-width: 960px;
+  padding: 48px 24px;
+}
+
+.hero {
+  border-bottom: 1px solid #ccd6df;
+  padding-bottom: 28px;
+}
+
+.eyebrow {
+  color: #48657f;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+h1 {
+  font-size: clamp(2.2rem, 6vw, 4.5rem);
+  letter-spacing: 0;
+  line-height: 1.05;
+  margin: 0;
+}
+
+h2 {
+  font-size: 1.25rem;
+  letter-spacing: 0;
+  margin: 0 0 16px;
+}
+
+.lead {
+  color: #344b62;
+  font-size: 1.1rem;
+  line-height: 1.8;
+  margin: 18px 0 0;
+}
+
+.status-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 28px 0;
+}
+
+article,
+.routes {
+  background: #ffffff;
+  border: 1px solid #d5dde5;
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.label {
+  color: #5f7285;
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+strong {
+  color: #1f4f78;
+  font-size: 1.1rem;
+}
+
+ul {
+  line-height: 1.9;
+  margin: 0;
+  padding-left: 20px;
+}
+
+code {
+  background: #edf3f8;
+  border-radius: 4px;
+  color: #153958;
+  padding: 2px 5px;
+}

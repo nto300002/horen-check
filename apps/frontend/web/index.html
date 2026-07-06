@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#1f4f78">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="stylesheet" href="/styles.css">
+    <title>ホウレンチェック</title>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero" aria-labelledby="title">
+        <p class="eyebrow">環境構築プレビュー</p>
+        <h1 id="title">ホウレンチェック</h1>
+        <p class="lead">報連相忘れを防ぐための就労支援・業務報告支援アプリです。</p>
+      </section>
+
+      <section class="status-grid" aria-label="サービス状態">
+        <article>
+          <span class="label">Frontend</span>
+          <strong id="frontend-status">確認中</strong>
+        </article>
+        <article>
+          <span class="label">Backend API</span>
+          <strong id="api-status">確認中</strong>
+        </article>
+        <article>
+          <span class="label">DB</span>
+          <strong id="db-status">確認中</strong>
+        </article>
+      </section>
+
+      <section class="routes" aria-label="初期ルート">
+        <h2>初期ルート</h2>
+        <ul>
+          <li><code>/notification/home</code> 通知モードホーム</li>
+          <li><code>/worker/home</code> workerホーム</li>
+          <li><code>/manager/home</code> managerホーム</li>
+          <li><code>/supporter/home</code> supporterホーム</li>
+          <li><code>/admin/home</code> adminホーム</li>
+        </ul>
+      </section>
+    </main>
+    <script src="/main.js"></script>
+  </body>
+</html>
