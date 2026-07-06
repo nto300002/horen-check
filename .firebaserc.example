@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "horen-check-local",
+    "production": "YOUR_FIREBASE_PRODUCTION_PROJECT_ID"
+  }
+}

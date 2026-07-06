@@ -1,0 +1,22 @@
+{
+  "name": "horen-check",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Environment scaffold for Horen Check frontend, backend, and DB services.",
+  "scripts": {
+    "dev": "node scripts/run-stack.js local",
+    "prod": "node scripts/run-stack.js production",
+    "dev:frontend": "node apps/frontend/server.js local",
+    "dev:api": "node apps/api/src/server.js local",
+    "dev:db": "node apps/db-emulator/src/server.js local",
+    "prod:frontend": "node apps/frontend/server.js production",
+    "prod:api": "node apps/api/src/server.js production",
+    "prod:db": "node apps/db-emulator/src/server.js production",
+    "test": "node --test apps/**/*.test.js",
+    "smoke:local": "node scripts/smoke-test.js local",
+    "smoke:production": "node scripts/smoke-test.js production"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
