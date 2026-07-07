@@ -32,12 +32,12 @@ class RegisterPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('ホウレンチェック'),
       ),
-      body: SafeArea(
+      body: const SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: const [
+            children: [
               Text(
                 '通知モード新規登録',
                 style: TextStyle(
