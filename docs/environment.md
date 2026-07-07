@@ -41,8 +41,16 @@ npm run prod:db
 
 ```bash
 npm test
+npm run test:functions
 npm run smoke:local
 npm run smoke:production
+```
+
+Firebase Emulator Suiteを使う確認:
+
+```bash
+npx firebase emulators:exec --only firestore "npm run test:rules" --project horen-check-rules-test
+npx firebase emulators:exec --only functions "npm run test:functions:emulator" --project horen-check-rules-test
 ```
 
 確認するエンドポイント:
@@ -64,10 +72,10 @@ curl http://127.0.0.1:8081/health
 1. Firebase projectを作成する。
 2. `.firebaserc.example`をコピーして`.firebaserc`を作成する。
 3. `YOUR_FIREBASE_PRODUCTION_PROJECT_ID`を実project IDに置き換える。
-4. Firebase CLIとJavaを導入する。
+4. `docs/toolchain.md`に沿ってFirebase CLI、Java、Flutterを導入する。
 5. `firebase emulators:start`でFirebase Emulator Suiteを起動する。
 6. `firebase deploy --project production`でHosting/Functions/Firestore Rulesをデプロイする。
 
 ## 現在の制約
 
-この環境では`flutter`、`firebase` CLI、Java Runtimeが未導入だったため、Flutter WebとFirebase Emulator Suiteの実起動はこのPRでは行っていない。代わりに、Node標準ライブラリだけで起動できるフロント、API、DBの接続確認用サーバーを追加している。接続確認用DBのlocal portは、既存プロセスと衝突しやすい`8080`を避けて`18080`にしている。
+この環境では`flutter`とJava Runtimeが未導入だったため、Flutter WebとFirebase Emulator Suiteの実起動はローカルでは完了していない。CIでは`subosito/flutter-action`と`actions/setup-java`で導入して検証する。Firebase CLIはnpm devDependencyとして導入している。接続確認用DBのlocal portは、既存プロセスと衝突しやすい`8080`を避けて`18080`にしている。

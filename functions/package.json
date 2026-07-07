@@ -3,9 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
     "build": "tsc",
-    "test": "node --test"
+    "test": "node --test test/**/*.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.0",
