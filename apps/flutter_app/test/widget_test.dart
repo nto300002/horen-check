@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:horen_check/main.dart';
 
@@ -100,10 +101,6 @@ void main() {
     await tester.tap(find.text('水分補給'));
     await tester.pumpAndSettle();
     expect(find.text('CUSTOM通知編集'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('削除'),
-      200,
-    );
-    expect(find.text('削除'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '削除'), findsOneWidget);
   });
 }
