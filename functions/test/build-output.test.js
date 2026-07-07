@@ -10,4 +10,7 @@ test("functions build emits the HTTPS api entry point", () => {
   assert.match(output, /exports\.api/);
   assert.match(output, /functions-api/);
   assert.match(output, /createNotificationUserProfile/);
+  assert.match(output, /createNotificationSchedule/);
+  assert.match(output, /updateNotificationSchedule/);
+  assert.match(output, /deleteNotificationSchedule/);
 });
