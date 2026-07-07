@@ -7,6 +7,7 @@ test("exports all Firestore collections from the detailed design", () => {
   assert.deepEqual(collectionNames, [
     "users",
     "organizations",
+    "invitations",
     "assignments",
     "notificationSettings",
     "notificationSchedules",
@@ -27,6 +28,7 @@ test("exports all Firestore collections from the detailed design", () => {
 
 test("collectionPath returns stable root collection names", () => {
   assert.equal(collectionPath("users"), "users");
+  assert.equal(collectionPath("invitations"), "invitations");
   assert.equal(collectionPath("reportEvents"), "reportEvents");
   assert.equal(collectionPath("idempotencyKeys"), "idempotencyKeys");
 });
