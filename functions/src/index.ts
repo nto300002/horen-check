@@ -26,7 +26,9 @@ import {
   NotificationScheduleDocument,
   NotificationSettingsDocument,
   UserDocument,
-  UserRole
+  UserRole,
+  EmploymentContext,
+  WorkerSettingsDocument
 } from "./domain/firestoreModels";
 import {
   cancelNotificationEventDocument,
@@ -39,6 +41,12 @@ import {
   unregisterFcmTokenDocument,
   updateNotificationSettingsDocument
 } from "./usecase/manageNotificationEvent";
+import {
+  RecipientResolutionError,
+  RecipientTransition,
+  resolveRecipients,
+  validateRequiredRecipients
+} from "./usecase/recipientResolution";
 
 if (getApps().length === 0) {
   initializeApp();
@@ -448,6 +456,33 @@ export const api = onRequest(async (request, response) => {
     return;
   }
 
+  if (request.method === "POST" && request.path === "/resolveRecipients") {
+    try {
+      const result = await resolveRecipientsFromRequest(request.body ?? {});
+      response.json({
+        status: "ok",
+        recipients: result
+      });
+    } catch (error) {
+      writeRecipientResolutionError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/validateRequiredRecipients") {
+    try {
+      const result = await resolveRecipientsFromRequest(request.body ?? {});
+      validateRequiredRecipients(result);
+      response.json({
+        status: "ok",
+        recipients: result
+      });
+    } catch (error) {
+      writeRecipientResolutionError(response, error);
+    }
+    return;
+  }
+
   if (request.method === "POST" && request.path === "/inviteUser") {
     try {
       const db = getFirestore();
@@ -660,6 +695,40 @@ export const api = onRequest(async (request, response) => {
   });
 });
 
+async function resolveRecipientsFromRequest(
+  body: FirebaseFirestore.DocumentData
+): Promise<ReturnType<typeof resolveRecipients>> {
+  const db = getFirestore();
+  const workerId = String(body?.workerId ?? "");
+  const [settingsSnapshot, assignmentSnapshot] = await Promise.all([
+    db.collection("workerSettings").doc(workerId).get(),
+    db.collection("assignments").doc(workerId).get()
+  ]);
+
+  if (!settingsSnapshot.exists) {
+    throw new RecipientResolutionError(
+      "WORKER_SETTINGS_NOT_FOUND",
+      "worker settings were not found"
+    );
+  }
+  if (!assignmentSnapshot.exists) {
+    throw new RecipientResolutionError("ASSIGNMENT_NOT_FOUND", "assignment was not found");
+  }
+
+  const workerSettings = normalizeWorkerSettings(settingsSnapshot.data() ?? {});
+
+  return resolveRecipients({
+    workerSettings,
+    assignment: normalizeAssignment(assignmentSnapshot.data() ?? {}),
+    employmentContext: (body?.employmentContext === undefined
+      ? workerSettings.defaultEmploymentContext
+      : String(body.employmentContext)) as EmploymentContext,
+    transition: normalizeRecipientTransition(body?.transition),
+    workerSelectedRecipients: asStringArrayOrUndefined(body?.workerSelectedRecipients),
+    workerExcludedRecipients: asStringArrayOrUndefined(body?.workerExcludedRecipients)
+  });
+}
+
 function writeScheduleError(
   response: Parameters<Parameters<typeof onRequest>[0]>[1],
   error: unknown
@@ -688,6 +757,26 @@ function writeNotificationEventError(
       error: "invalid_argument",
       errorCode: error.code,
       message: error.message
+    });
+    return;
+  }
+
+  response.status(400).json({
+    error: "invalid_argument",
+    message: error instanceof Error ? error.message : "Invalid request"
+  });
+}
+
+function writeRecipientResolutionError(
+  response: Parameters<Parameters<typeof onRequest>[0]>[1],
+  error: unknown
+): void {
+  if (error instanceof RecipientResolutionError) {
+    response.status(400).json({
+      error: "invalid_argument",
+      errorCode: error.code,
+      message: error.message,
+      missingRecipients: error.missingRecipients
     });
     return;
   }
@@ -728,6 +817,27 @@ function asDate(value: unknown): Date {
   return new Date(String(value));
 }
 
+function asStringArrayOrUndefined(value: unknown): string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item) => String(item));
+}
+
+function normalizeRecipientTransition(value: unknown): RecipientTransition | undefined {
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  const data = value as FirebaseFirestore.DocumentData;
+  return {
+    id: String(data.id ?? ""),
+    status: String(data.status ?? "") as RecipientTransition["status"]
+  };
+}
+
 function normalizeSchedule(data: FirebaseFirestore.DocumentData): NotificationScheduleDocument {
   return {
     ...data,
@@ -754,6 +864,14 @@ function normalizeSettings(data: FirebaseFirestore.DocumentData): NotificationSe
     createdAt: asDate(data.createdAt),
     updatedAt: asDate(data.updatedAt)
   } as NotificationSettingsDocument;
+}
+
+function normalizeWorkerSettings(data: FirebaseFirestore.DocumentData): WorkerSettingsDocument {
+  return {
+    ...data,
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as WorkerSettingsDocument;
 }
 
 function normalizeLog(data: FirebaseFirestore.DocumentData): NotificationLogDocument {
