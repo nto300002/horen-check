@@ -8,6 +8,7 @@ export type WorkStyle = "remote" | "office" | "day_off";
 export type EmploymentContext = "supported_facility" | "general_employment";
 export type DeliveryChannel = "email" | "push" | "in_app";
 export type DeliveryStatus = "pending" | "sent" | "failed";
+export type InvitationStatus = "pending" | "accepted" | "expired" | "cancelled";
 export type ConsultationThreadStatus = "open" | "closed";
 export type ModeSwitchStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type ModeSwitchRequestMethod = "invite_link" | "supporter_email";
@@ -49,6 +50,23 @@ export interface AssignmentDocument extends TimestampFields {
   updatedBy?: string;
   deactivatedBy?: string;
   deactivatedAt?: Date;
+}
+
+export interface InvitationDocument extends TimestampFields {
+  id: string;
+  email: string;
+  role: Exclude<UserRole, "admin">;
+  organizationId: string;
+  invitedBy: string;
+  token: string;
+  status: InvitationStatus;
+  expiresAt: Date;
+  lastSentAt: Date;
+  resentCount: number;
+  acceptedBy?: string;
+  acceptedAt?: Date;
+  cancelledBy?: string;
+  cancelledAt?: Date;
 }
 
 export interface NotificationSettingsDocument extends TimestampFields {
@@ -252,6 +270,7 @@ export interface IdempotencyKeyDocument {
 export const collectionNames = [
   "users",
   "organizations",
+  "invitations",
   "assignments",
   "notificationSettings",
   "notificationSchedules",

@@ -61,6 +61,18 @@ Route<void> _buildRoute(RouteSettings settings) {
   if (name == '/notification/settings') {
     return _pageRoute(settings, const NotificationSettingsPage());
   }
+  if (name == '/admin/users') {
+    return _pageRoute(settings, const AdminUsersPage());
+  }
+  if (name == '/admin/invitations') {
+    return _pageRoute(settings, const AdminInvitationsPage());
+  }
+  if (name == '/admin/roles') {
+    return _pageRoute(settings, const AdminRolesPage());
+  }
+  if (name == '/admin/assignments') {
+    return _pageRoute(settings, const AdminAssignmentsPage());
+  }
 
   return _pageRoute(settings, const NotificationHomePage());
 }
@@ -106,6 +118,48 @@ class NotificationLogItem {
   final String type;
   final String status;
   final String channel;
+}
+
+class AdminUserItem {
+  const AdminUserItem({
+    required this.name,
+    required this.email,
+    required this.role,
+    required this.active,
+  });
+
+  final String name;
+  final String email;
+  final String role;
+  final bool active;
+}
+
+class AdminInvitationItem {
+  const AdminInvitationItem({
+    required this.email,
+    required this.role,
+    required this.status,
+    required this.expiresAt,
+  });
+
+  final String email;
+  final String role;
+  final String status;
+  final String expiresAt;
+}
+
+class AdminAssignmentItem {
+  const AdminAssignmentItem({
+    required this.worker,
+    required this.manager,
+    required this.supporter,
+    required this.active,
+  });
+
+  final String worker;
+  final String manager;
+  final String supporter;
+  final bool active;
 }
 
 const amPmSchedules = [
@@ -164,6 +218,45 @@ const notificationLogs = [
     type: 'CUSTOM',
     status: '送信済み',
     channel: 'email',
+  ),
+];
+
+const adminUsers = [
+  AdminUserItem(
+    name: 'Worker One',
+    email: 'worker@example.com',
+    role: 'worker',
+    active: true,
+  ),
+  AdminUserItem(
+    name: 'Manager One',
+    email: 'manager@example.com',
+    role: 'manager',
+    active: true,
+  ),
+  AdminUserItem(
+    name: 'Supporter One',
+    email: 'supporter@example.com',
+    role: 'supporter',
+    active: false,
+  ),
+];
+
+const adminInvitations = [
+  AdminInvitationItem(
+    email: 'new-worker@example.com',
+    role: 'worker',
+    status: 'pending',
+    expiresAt: '2026/07/14',
+  ),
+];
+
+const adminAssignments = [
+  AdminAssignmentItem(
+    worker: 'Worker One',
+    manager: 'Manager One',
+    supporter: 'Supporter One',
+    active: true,
   ),
 ];
 
@@ -613,6 +706,189 @@ class NotificationSettingsPage extends StatelessWidget {
   }
 }
 
+class AdminUsersPage extends StatelessWidget {
+  const AdminUsersPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('ユーザー管理'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const _AdminNavigationRow(),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/admin/invitations'),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('ユーザーを招待'),
+            ),
+            const SizedBox(height: 12),
+            for (final user in adminUsers)
+              Card(
+                child: ListTile(
+                  leading: Icon(user.active ? Icons.check_circle_outline : Icons.pause_circle_outline),
+                  title: Text(user.name),
+                  subtitle: Text('${user.email} / ${user.role}'),
+                  trailing: Text(user.active ? '有効' : '停止中'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminInvitationsPage extends StatelessWidget {
+  const AdminInvitationsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('招待管理'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const _AdminNavigationRow(),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '招待メールアドレス',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: 'worker',
+              items: const [
+                DropdownMenuItem(value: 'worker', child: Text('worker')),
+                DropdownMenuItem(value: 'manager', child: Text('manager')),
+                DropdownMenuItem(value: 'supporter', child: Text('supporter')),
+              ],
+              onChanged: (_) {},
+              decoration: const InputDecoration(
+                labelText: 'ロール',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.send),
+              label: const Text('招待を送信'),
+            ),
+            const SizedBox(height: 20),
+            const _SectionTitle('招待一覧'),
+            for (final invitation in adminInvitations)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.mark_email_unread_outlined),
+                  title: Text(invitation.email),
+                  subtitle: Text('${invitation.role} / ${invitation.expiresAt}まで'),
+                  trailing: Text(invitation.status),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminRolesPage extends StatelessWidget {
+  const AdminRolesPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('ロール管理'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const _AdminNavigationRow(),
+            const SizedBox(height: 12),
+            for (final user in adminUsers)
+              Card(
+                child: ListTile(
+                  title: Text(user.name),
+                  subtitle: Text(user.email),
+                  trailing: DropdownButton<String>(
+                    value: user.role,
+                    items: const [
+                      DropdownMenuItem(value: 'worker', child: Text('worker')),
+                      DropdownMenuItem(value: 'manager', child: Text('manager')),
+                      DropdownMenuItem(value: 'supporter', child: Text('supporter')),
+                    ],
+                    onChanged: (_) {},
+                  ),
+                ),
+              ),
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.history_edu),
+                title: Text('ロール変更は監査ログに保存されます'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminAssignmentsPage extends StatelessWidget {
+  const AdminAssignmentsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('担当者紐づけ'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const _AdminNavigationRow(),
+            const SizedBox(height: 12),
+            for (final assignment in adminAssignments)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.group_add),
+                  title: Text(assignment.worker),
+                  subtitle: Text('manager: ${assignment.manager}\nsupporter: ${assignment.supporter}'),
+                  trailing: Text(assignment.active ? '有効' : '解除済み'),
+                ),
+              ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.link_off),
+              label: const Text('担当解除'),
+            ),
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.info_outline),
+                title: Text('担当解除時は物理削除せず active=false として保存します'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _NotificationCard extends StatelessWidget {
   const _NotificationCard({
     required this.title,
@@ -648,6 +924,40 @@ class _NotificationCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AdminNavigationRow extends StatelessWidget {
+  const _AdminNavigationRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: () => Navigator.pushNamed(context, '/admin/users'),
+          icon: const Icon(Icons.people_outline),
+          label: const Text('ユーザー管理'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.pushNamed(context, '/admin/invitations'),
+          icon: const Icon(Icons.mail_outline),
+          label: const Text('招待管理'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.pushNamed(context, '/admin/roles'),
+          icon: const Icon(Icons.admin_panel_settings_outlined),
+          label: const Text('ロール管理'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.pushNamed(context, '/admin/assignments'),
+          icon: const Icon(Icons.account_tree_outlined),
+          label: const Text('担当者紐づけ'),
+        ),
+      ],
     );
   }
 }

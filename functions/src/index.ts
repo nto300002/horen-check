@@ -1,6 +1,16 @@
 import { getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { onRequest } from "firebase-functions/v2/https";
+import {
+  acceptInvitationDocuments,
+  AdminUserManagementError,
+  assignUserDocuments,
+  deactivateAssignmentDocuments,
+  deactivateUserDocuments,
+  inviteUserDocuments,
+  updateUserRoleDocuments
+} from "./usecase/adminUserManagement";
 import { createNotificationUserProfileDocuments } from "./usecase/createNotificationUserProfile";
 import {
   createNotificationScheduleDocument,
@@ -9,10 +19,14 @@ import {
   updateNotificationScheduleDocument
 } from "./usecase/manageNotificationSchedule";
 import {
+  AssignmentDocument,
+  InvitationDocument,
   NotificationEventDocument,
   NotificationLogDocument,
   NotificationScheduleDocument,
-  NotificationSettingsDocument
+  NotificationSettingsDocument,
+  UserDocument,
+  UserRole
 } from "./domain/firestoreModels";
 import {
   cancelNotificationEventDocument,
@@ -434,6 +448,213 @@ export const api = onRequest(async (request, response) => {
     return;
   }
 
+  if (request.method === "POST" && request.path === "/inviteUser") {
+    try {
+      const db = getFirestore();
+      const email = String(request.body?.email ?? "").trim().toLowerCase();
+      const organizationId = String(request.body?.organizationId ?? "");
+      const existingInvitationsSnapshot = await db.collection("invitations")
+        .where("email", "==", email)
+        .where("organizationId", "==", organizationId)
+        .where("status", "==", "pending")
+        .get();
+      const invitationRef = db.collection("invitations").doc();
+      const result = inviteUserDocuments({
+        id: invitationRef.id,
+        email,
+        role: String(request.body?.role ?? "worker") as Exclude<UserRole, "admin">,
+        organizationId,
+        invitedBy: String(request.body?.actorId ?? ""),
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole,
+        token: String(request.body?.token ?? invitationRef.id),
+        reason: request.body?.reason,
+        existingInvitations: existingInvitationsSnapshot.docs.map((doc) => normalizeInvitation(doc.data()))
+      });
+
+      const batch = db.batch();
+      batch.set(db.collection("invitations").doc(result.invitation.id), result.invitation);
+      batch.set(db.collection("auditLogs").doc(result.auditLog.id), result.auditLog);
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        invitation: result.invitation,
+        resendExisting: result.resendExisting
+      });
+    } catch (error) {
+      writeAdminUserManagementError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/acceptInvitation") {
+    try {
+      const db = getFirestore();
+      const invitationId = String(request.body?.invitationId ?? "");
+      const invitationRef = db.collection("invitations").doc(invitationId);
+      const snapshot = await invitationRef.get();
+      if (!snapshot.exists) {
+        throw new AdminUserManagementError("INVITATION_NOT_FOUND", "invitation was not found");
+      }
+      const result = acceptInvitationDocuments({
+        invitation: normalizeInvitation(snapshot.data() ?? {}),
+        uid: String(request.body?.uid ?? ""),
+        name: String(request.body?.name ?? ""),
+        token: String(request.body?.token ?? "")
+      });
+
+      const batch = db.batch();
+      batch.set(invitationRef, result.invitation);
+      batch.set(db.collection("users").doc(result.user.id), result.user);
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        invitation: result.invitation,
+        user: result.user,
+        homeRoute: result.homeRoute
+      });
+    } catch (error) {
+      writeAdminUserManagementError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/updateUserRole") {
+    try {
+      const db = getFirestore();
+      const userId = String(request.body?.userId ?? "");
+      const userRef = db.collection("users").doc(userId);
+      const snapshot = await userRef.get();
+      if (!snapshot.exists) {
+        throw new AdminUserManagementError("USER_NOT_FOUND", "user was not found");
+      }
+      const result = updateUserRoleDocuments({
+        existingUser: normalizeUser(snapshot.data() ?? {}),
+        nextRole: String(request.body?.nextRole ?? "worker") as UserRole,
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole,
+        reason: request.body?.reason
+      });
+
+      const batch = db.batch();
+      batch.set(userRef, result.user);
+      batch.set(db.collection("auditLogs").doc(result.auditLog.id), result.auditLog);
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        user: result.user,
+        auditLog: result.auditLog
+      });
+    } catch (error) {
+      writeAdminUserManagementError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/assignUser") {
+    try {
+      const db = getFirestore();
+      const workerId = String(request.body?.workerId ?? "");
+      const assignmentRef = db.collection("assignments").doc(workerId);
+      const snapshot = await assignmentRef.get();
+      const result = assignUserDocuments({
+        workerId,
+        managerId: request.body?.managerId,
+        supporterId: request.body?.supporterId,
+        organizationId: String(request.body?.organizationId ?? ""),
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole,
+        reason: request.body?.reason,
+        existingAssignment: snapshot.exists ? normalizeAssignment(snapshot.data() ?? {}) : undefined
+      });
+
+      const batch = db.batch();
+      batch.set(assignmentRef, result.assignment);
+      batch.set(db.collection("auditLogs").doc(result.auditLog.id), result.auditLog);
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        assignment: result.assignment,
+        auditLog: result.auditLog
+      });
+    } catch (error) {
+      writeAdminUserManagementError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/deactivateAssignment") {
+    try {
+      const db = getFirestore();
+      const workerId = String(request.body?.workerId ?? "");
+      const assignmentRef = db.collection("assignments").doc(workerId);
+      const snapshot = await assignmentRef.get();
+      if (!snapshot.exists) {
+        throw new AdminUserManagementError("ASSIGNMENT_NOT_FOUND", "assignment was not found");
+      }
+      const result = deactivateAssignmentDocuments({
+        existingAssignment: normalizeAssignment(snapshot.data() ?? {}),
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole,
+        reason: request.body?.reason
+      });
+
+      const batch = db.batch();
+      batch.set(assignmentRef, result.assignment);
+      batch.set(db.collection("auditLogs").doc(result.auditLog.id), result.auditLog);
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        assignment: result.assignment,
+        auditLog: result.auditLog
+      });
+    } catch (error) {
+      writeAdminUserManagementError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/deactivateUser") {
+    try {
+      const db = getFirestore();
+      const userId = String(request.body?.userId ?? "");
+      const userRef = db.collection("users").doc(userId);
+      const snapshot = await userRef.get();
+      if (!snapshot.exists) {
+        throw new AdminUserManagementError("USER_NOT_FOUND", "user was not found");
+      }
+      const result = deactivateUserDocuments({
+        existingUser: normalizeUser(snapshot.data() ?? {}),
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole,
+        reason: request.body?.reason
+      });
+
+      const batch = db.batch();
+      batch.set(userRef, result.user);
+      batch.set(db.collection("auditLogs").doc(result.auditLog.id), result.auditLog);
+      await batch.commit();
+      await getAuth().updateUser(result.disableAuth.uid, {
+        disabled: result.disableAuth.disabled
+      });
+
+      response.json({
+        status: "ok",
+        user: result.user,
+        auditLog: result.auditLog,
+        disableAuth: result.disableAuth
+      });
+    } catch (error) {
+      writeAdminUserManagementError(response, error);
+    }
+    return;
+  }
+
   response.status(404).json({
     error: "not_found"
   });
@@ -463,6 +684,25 @@ function writeNotificationEventError(
   error: unknown
 ): void {
   if (error instanceof NotificationEventError) {
+    response.status(400).json({
+      error: "invalid_argument",
+      errorCode: error.code,
+      message: error.message
+    });
+    return;
+  }
+
+  response.status(400).json({
+    error: "invalid_argument",
+    message: error instanceof Error ? error.message : "Invalid request"
+  });
+}
+
+function writeAdminUserManagementError(
+  response: Parameters<Parameters<typeof onRequest>[0]>[1],
+  error: unknown
+): void {
+  if (error instanceof AdminUserManagementError) {
     response.status(400).json({
       error: "invalid_argument",
       errorCode: error.code,
@@ -523,4 +763,33 @@ function normalizeLog(data: FirebaseFirestore.DocumentData): NotificationLogDocu
     clickedAt: data.clickedAt === undefined ? undefined : asDate(data.clickedAt),
     createdAt: asDate(data.createdAt)
   } as NotificationLogDocument;
+}
+
+function normalizeInvitation(data: FirebaseFirestore.DocumentData): InvitationDocument {
+  return {
+    ...data,
+    expiresAt: asDate(data.expiresAt),
+    lastSentAt: asDate(data.lastSentAt),
+    acceptedAt: data.acceptedAt === undefined ? undefined : asDate(data.acceptedAt),
+    cancelledAt: data.cancelledAt === undefined ? undefined : asDate(data.cancelledAt),
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as InvitationDocument;
+}
+
+function normalizeUser(data: FirebaseFirestore.DocumentData): UserDocument {
+  return {
+    ...data,
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as UserDocument;
+}
+
+function normalizeAssignment(data: FirebaseFirestore.DocumentData): AssignmentDocument {
+  return {
+    ...data,
+    deactivatedAt: data.deactivatedAt === undefined ? undefined : asDate(data.deactivatedAt),
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as AssignmentDocument;
 }

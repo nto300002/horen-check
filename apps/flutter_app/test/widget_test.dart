@@ -103,4 +103,32 @@ void main() {
     expect(find.text('CUSTOM通知編集'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, '削除'), findsOneWidget);
   });
+
+  testWidgets('renders admin users, invitations, roles, and assignments routes', (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/admin/users'));
+
+    expect(find.text('ユーザー管理'), findsWidgets);
+    expect(find.text('ユーザーを招待'), findsOneWidget);
+    expect(find.text('Worker One'), findsOneWidget);
+    expect(find.text('停止中'), findsOneWidget);
+
+    await tester.tap(find.text('ユーザーを招待'));
+    await tester.pumpAndSettle();
+    expect(find.text('招待管理'), findsWidgets);
+    expect(find.text('招待メールアドレス'), findsOneWidget);
+    expect(find.text('招待を送信'), findsOneWidget);
+    expect(find.text('new-worker@example.com'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'ロール管理').first);
+    await tester.pumpAndSettle();
+    expect(find.text('ロール管理'), findsWidgets);
+    expect(find.text('ロール変更は監査ログに保存されます'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '担当者紐づけ').first);
+    await tester.pumpAndSettle();
+    expect(find.text('担当者紐づけ'), findsWidgets);
+    expect(find.textContaining('manager: Manager One'), findsOneWidget);
+    expect(find.text('担当解除'), findsOneWidget);
+    expect(find.textContaining('active=false'), findsOneWidget);
+  });
 }
