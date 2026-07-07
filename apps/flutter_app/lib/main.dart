@@ -18,13 +18,13 @@ class HorenCheckApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const EnvironmentHomePage(),
+      home: const RegisterPage(),
     );
   }
 }
 
-class EnvironmentHomePage extends StatelessWidget {
-  const EnvironmentHomePage({super.key});
+class RegisterPage extends StatelessWidget {
+  const RegisterPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,32 +32,97 @@ class EnvironmentHomePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('ホウレンチェック'),
       ),
-      body: const SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(24),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: const [
               Text(
-                '環境構築プレビュー',
+                '通知モード新規登録',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               SizedBox(height: 12),
               Text(
-                '報連相忘れを防ぐための就労支援・業務報告支援アプリです。',
-                style: TextStyle(fontSize: 18, height: 1.6),
+                'まずは自分だけで通知を使えます。',
+                style: TextStyle(fontSize: 16, height: 1.6),
               ),
               SizedBox(height: 24),
-              _StatusTile(label: 'Frontend', value: 'Flutter Web'),
-              _StatusTile(label: 'Backend', value: 'Cloud Functions'),
-              _StatusTile(label: 'DB', value: 'Firestore'),
+              _RegistrationForm(),
+              SizedBox(height: 24),
+              _InitialNotificationPreview(),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _RegistrationForm extends StatelessWidget {
+  const _RegistrationForm();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const TextField(
+          decoration: InputDecoration(
+            labelText: '名前',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const TextField(
+          decoration: InputDecoration(
+            labelText: 'メールアドレス',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 12),
+        const TextField(
+          decoration: InputDecoration(
+            labelText: 'パスワード',
+            border: OutlineInputBorder(),
+          ),
+          obscureText: true,
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: () {},
+          child: const Text('登録する'),
+        ),
+        TextButton(
+          onPressed: () {},
+          child: const Text('ログインはこちら'),
+        ),
+      ],
+    );
+  }
+}
+
+class _InitialNotificationPreview extends StatelessWidget {
+  const _InitialNotificationPreview();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '登録後の流れ',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: 12),
+        _StatusTile(label: '通知許可', value: '後で設定することもできます'),
+        _StatusTile(label: '初期通知確認', value: 'AM/PM 4種を確認します'),
+        _StatusTile(label: '通知モードホーム', value: '今日の通知を確認できます'),
+      ],
     );
   }
 }
