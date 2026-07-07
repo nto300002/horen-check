@@ -57,6 +57,7 @@ export interface NotificationSettingsDocument extends TimestampFields {
   mailEnabled: boolean;
   soundEnabled: boolean;
   fallbackEmail?: string;
+  fcmToken?: string;
 }
 
 export interface NotificationScheduleDocument extends TimestampFields {
