@@ -766,7 +766,7 @@ class AdminInvitationsPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: 'worker',
+              initialValue: 'worker',
               items: const [
                 DropdownMenuItem(value: 'worker', child: Text('worker')),
                 DropdownMenuItem(value: 'manager', child: Text('manager')),
