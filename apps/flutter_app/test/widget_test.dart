@@ -145,7 +145,7 @@ void main() {
     expect(find.text('自由入力'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('生成文確認').first,
+      find.textContaining('本日は在庫確認に取り組みます。').first,
       300,
       scrollable: find.byType(Scrollable).first,
     );
