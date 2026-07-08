@@ -951,7 +951,10 @@ class WorkerTodayReportPage extends StatelessWidget {
               maxLines: 6,
             ),
             const SizedBox(height: 8),
-            const Text(generatedText),
+            const Text(
+              generatedText,
+              key: Key('generatedReportText'),
+            ),
             const SizedBox(height: 20),
             const _SectionTitle('送信先確認'),
             CheckboxListTile(
@@ -977,6 +980,7 @@ class WorkerTodayReportPage extends StatelessWidget {
             const _StatusTile(label: 'reportEvents.status', value: 'reported'),
             const _StatusTile(label: 'delivery', value: 'manager@example.com failed'),
             OutlinedButton.icon(
+              key: const Key('retryReportDeliveryButton'),
               onPressed: () {},
               icon: const Icon(Icons.refresh),
               label: const Text('再送'),

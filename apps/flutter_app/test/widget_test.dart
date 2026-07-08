@@ -145,7 +145,7 @@ void main() {
     expect(find.text('自由入力'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.textContaining('本日は在庫確認に取り組みます。').first,
+      find.byKey(const Key('generatedReportText')),
       300,
       scrollable: find.byType(Scrollable).first,
     );
@@ -162,7 +162,7 @@ void main() {
     expect(find.text('Manager One'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('再送').first,
+      find.byKey(const Key('retryReportDeliveryButton')),
       300,
       scrollable: find.byType(Scrollable).first,
     );
