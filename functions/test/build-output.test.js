@@ -23,6 +23,9 @@ test("functions build emits the HTTPS api entry point", () => {
   assert.match(output, /updateNotificationSettings/);
   assert.match(output, /resolveRecipients/);
   assert.match(output, /validateRequiredRecipients/);
+  assert.match(output, /updateReportSchedule/);
+  assert.match(output, /generateDailyReportEvents/);
+  assert.match(output, /sendDueReportReminders/);
   assert.match(output, /inviteUser/);
   assert.match(output, /acceptInvitation/);
   assert.match(output, /updateUserRole/);

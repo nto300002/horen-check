@@ -25,6 +25,8 @@ import {
   NotificationLogDocument,
   NotificationScheduleDocument,
   NotificationSettingsDocument,
+  ReportEventDocument,
+  ReportScheduleDocument,
   UserDocument,
   UserRole,
   EmploymentContext,
@@ -47,6 +49,14 @@ import {
   resolveRecipients,
   validateRequiredRecipients
 } from "./usecase/recipientResolution";
+import {
+  ReportScheduleError,
+  updateReportScheduleDocument
+} from "./usecase/manageReportSchedule";
+import {
+  generateDailyReportEventDocuments,
+  sendDueReportReminders
+} from "./usecase/manageReportEvent";
 
 if (getApps().length === 0) {
   initializeApp();
@@ -483,6 +493,121 @@ export const api = onRequest(async (request, response) => {
     return;
   }
 
+  if (request.method === "POST" && request.path === "/updateReportSchedule") {
+    try {
+      const db = getFirestore();
+      const workerId = String(request.body?.workerId ?? "");
+      const type = String(request.body?.type ?? request.body?.patch?.type ?? "AM_START");
+      const scheduleId = String(request.body?.scheduleId ?? `${workerId}_${type}`);
+      const scheduleRef = db.collection("reportSchedules").doc(scheduleId);
+      const snapshot = await scheduleRef.get();
+      const patch = {
+        type,
+        ...(request.body?.patch ?? {})
+      };
+      const schedule = updateReportScheduleDocument({
+        id: scheduleId,
+        workerId,
+        organizationId: String(request.body?.organizationId ?? ""),
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole,
+        existingSchedule: snapshot.exists ? normalizeReportSchedule(snapshot.data() ?? {}) : undefined,
+        patch
+      });
+
+      await scheduleRef.set(schedule);
+
+      response.json({
+        status: "ok",
+        reportSchedule: schedule
+      });
+    } catch (error) {
+      writeReportScheduleError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/generateDailyReportEvents") {
+    try {
+      const db = getFirestore();
+      const targetDate = request.body?.targetDate === undefined
+        ? new Date()
+        : new Date(String(request.body.targetDate));
+      const [schedulesSnapshot, eventsSnapshot, workerSettingsSnapshot] = await Promise.all([
+        db.collection("reportSchedules").get(),
+        db.collection("reportEvents").get(),
+        db.collection("workerSettings").get()
+      ]);
+      const workerSettingsByWorkerId = Object.fromEntries(
+        workerSettingsSnapshot.docs.map((doc) => {
+          const settings = normalizeWorkerSettings(doc.data());
+          return [settings.userId, settings];
+        })
+      );
+      const events = generateDailyReportEventDocuments({
+        schedules: schedulesSnapshot.docs.map((doc) => normalizeReportSchedule(doc.data())),
+        existingEvents: eventsSnapshot.docs.map((doc) => normalizeReportEvent(doc.data())),
+        workerSettingsByWorkerId,
+        targetDate
+      });
+
+      const batch = db.batch();
+      for (const event of events) {
+        batch.set(db.collection("reportEvents").doc(event.id), event);
+      }
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        reportEvents: events
+      });
+    } catch (error) {
+      writeReportScheduleError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/sendDueReportReminders") {
+    try {
+      const db = getFirestore();
+      const now = request.body?.now === undefined ? new Date() : new Date(String(request.body.now));
+      const [eventsSnapshot, settingsSnapshot] = await Promise.all([
+        db.collection("reportEvents").get(),
+        db.collection("notificationSettings").get()
+      ]);
+      const settingsByUserId = Object.fromEntries(
+        settingsSnapshot.docs.map((doc) => {
+          const settings = normalizeSettings(doc.data());
+          return [settings.userId, settings];
+        })
+      );
+      const result = await sendDueReportReminders({
+        events: eventsSnapshot.docs.map((doc) => normalizeReportEvent(doc.data())),
+        settingsByUserId,
+        now,
+        pushSender: async () => undefined
+      });
+
+      const batch = db.batch();
+      for (const event of result.events) {
+        batch.set(db.collection("reportEvents").doc(event.id), event);
+      }
+      for (const log of result.logs) {
+        batch.set(db.collection("notificationLogs").doc(log.id), log);
+      }
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        reportEvents: result.events,
+        notificationLogs: result.logs
+      });
+    } catch (error) {
+      writeReportScheduleError(response, error);
+    }
+    return;
+  }
+
   if (request.method === "POST" && request.path === "/inviteUser") {
     try {
       const db = getFirestore();
@@ -787,6 +912,25 @@ function writeRecipientResolutionError(
   });
 }
 
+function writeReportScheduleError(
+  response: Parameters<Parameters<typeof onRequest>[0]>[1],
+  error: unknown
+): void {
+  if (error instanceof ReportScheduleError) {
+    response.status(400).json({
+      error: "invalid_argument",
+      errorCode: error.code,
+      message: error.message
+    });
+    return;
+  }
+
+  response.status(400).json({
+    error: "invalid_argument",
+    message: error instanceof Error ? error.message : "Invalid request"
+  });
+}
+
 function writeAdminUserManagementError(
   response: Parameters<Parameters<typeof onRequest>[0]>[1],
   error: unknown
@@ -872,6 +1016,27 @@ function normalizeWorkerSettings(data: FirebaseFirestore.DocumentData): WorkerSe
     createdAt: asDate(data.createdAt),
     updatedAt: asDate(data.updatedAt)
   } as WorkerSettingsDocument;
+}
+
+function normalizeReportSchedule(data: FirebaseFirestore.DocumentData): ReportScheduleDocument {
+  return {
+    ...data,
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as ReportScheduleDocument;
+}
+
+function normalizeReportEvent(data: FirebaseFirestore.DocumentData): ReportEventDocument {
+  return {
+    ...data,
+    dueAt: asDate(data.dueAt),
+    lastNotifiedAt: data.lastNotifiedAt === undefined ? undefined : asDate(data.lastNotifiedAt),
+    visibleToManagerAfter: data.visibleToManagerAfter === undefined
+      ? undefined
+      : asDate(data.visibleToManagerAfter),
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as ReportEventDocument;
 }
 
 function normalizeLog(data: FirebaseFirestore.DocumentData): NotificationLogDocument {
