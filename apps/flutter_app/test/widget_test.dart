@@ -170,4 +170,25 @@ void main() {
     expect(find.text('reported'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, '再送'), findsOneWidget);
   });
+
+  testWidgets('renders worker report history, detail, correction, and retry routes', (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/worker/reports'));
+
+    expect(find.text('報告履歴'), findsOneWidget);
+    expect(find.text('過去90日分'), findsOneWidget);
+    expect(find.textContaining('AM_START / 2026/07/07'), findsOneWidget);
+
+    await tester.tap(find.textContaining('AM_START / 2026/07/07'));
+    await tester.pumpAndSettle();
+    expect(find.text('報告詳細'), findsOneWidget);
+    expect(find.text('reported'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '再送'), findsOneWidget);
+
+    await tester.tap(find.text('訂正版作成'));
+    await tester.pumpAndSettle();
+    expect(find.text('訂正版作成'), findsWidgets);
+    expect(find.text('訂正理由'), findsOneWidget);
+    expect(find.text('訂正文'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '訂正版を作成'), findsOneWidget);
+  });
 }

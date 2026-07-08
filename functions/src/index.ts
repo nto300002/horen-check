@@ -27,6 +27,7 @@ import {
   NotificationScheduleDocument,
   NotificationSettingsDocument,
   ReportDeliveryDocument,
+  ReportCorrectionDocument,
   ReportDocument,
   ReportEventDocument,
   ReportScheduleDocument,
@@ -65,6 +66,12 @@ import {
   submitReportDocuments,
   SubmitReportError
 } from "./usecase/submitReport";
+import {
+  createReportCorrectionDocument,
+  listRecentWorkerReports,
+  listReportCorrections,
+  ReportHistoryError
+} from "./usecase/manageReportHistory";
 
 if (getApps().length === 0) {
   initializeApp();
@@ -741,6 +748,83 @@ export const api = onRequest(async (request, response) => {
     return;
   }
 
+  if (request.method === "GET" && request.path === "/listWorkerReports") {
+    try {
+      const db = getFirestore();
+      const workerId = String(request.query.workerId ?? "");
+      const reportsSnapshot = await db.collection("reports")
+        .where("workerId", "==", workerId)
+        .get();
+      const reports = listRecentWorkerReports({
+        reports: reportsSnapshot.docs.map((doc) => normalizeReport(doc.data())),
+        workerId,
+        now: new Date()
+      });
+
+      response.json({
+        status: "ok",
+        reports
+      });
+    } catch (error) {
+      writeReportHistoryError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/createReportCorrection") {
+    try {
+      const db = getFirestore();
+      const reportId = String(request.body?.reportId ?? "");
+      const workerId = String(request.body?.workerId ?? "");
+      const reportSnapshot = await db.collection("reports").doc(reportId).get();
+      if (!reportSnapshot.exists) {
+        throw new ReportHistoryError("REPORT_NOT_FOUND", "report was not found");
+      }
+      const correctionRef = db.collection("reportCorrections").doc();
+      const result = createReportCorrectionDocument({
+        id: correctionRef.id,
+        report: normalizeReport(reportSnapshot.data() ?? {}),
+        workerId,
+        correctedText: String(request.body?.correctedText ?? ""),
+        reason: String(request.body?.reason ?? "")
+      });
+      await correctionRef.set(result.correction);
+
+      response.json({
+        status: "ok",
+        reportCorrection: result.correction,
+        originalReport: result.originalReport
+      });
+    } catch (error) {
+      writeReportHistoryError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "GET" && request.path === "/listReportCorrections") {
+    try {
+      const db = getFirestore();
+      const reportId = String(request.query.reportId ?? "");
+      const workerId = String(request.query.workerId ?? "");
+      const correctionsSnapshot = await db.collection("reportCorrections")
+        .where("reportId", "==", reportId)
+        .get();
+      const corrections = listReportCorrections({
+        corrections: correctionsSnapshot.docs.map((doc) => normalizeReportCorrection(doc.data())),
+        reportId,
+        workerId
+      });
+
+      response.json({
+        status: "ok",
+        reportCorrections: corrections
+      });
+    } catch (error) {
+      writeReportHistoryError(response, error);
+    }
+    return;
+  }
+
   if (request.method === "POST" && request.path === "/inviteUser") {
     try {
       const db = getFirestore();
@@ -1084,6 +1168,25 @@ function writeSubmitReportError(
   });
 }
 
+function writeReportHistoryError(
+  response: Parameters<Parameters<typeof onRequest>[0]>[1],
+  error: unknown
+): void {
+  if (error instanceof ReportHistoryError) {
+    response.status(400).json({
+      error: "invalid_argument",
+      errorCode: error.code,
+      message: error.message
+    });
+    return;
+  }
+
+  response.status(400).json({
+    error: "invalid_argument",
+    message: error instanceof Error ? error.message : "Invalid request"
+  });
+}
+
 function writeAdminUserManagementError(
   response: Parameters<Parameters<typeof onRequest>[0]>[1],
   error: unknown
@@ -1208,6 +1311,14 @@ function normalizeReportDelivery(data: FirebaseFirestore.DocumentData): ReportDe
     createdAt: asDate(data.createdAt),
     updatedAt: asDate(data.updatedAt)
   } as ReportDeliveryDocument;
+}
+
+function normalizeReportCorrection(data: FirebaseFirestore.DocumentData): ReportCorrectionDocument {
+  return {
+    ...data,
+    submittedAt: asDate(data.submittedAt),
+    createdAt: asDate(data.createdAt)
+  } as ReportCorrectionDocument;
 }
 
 function normalizeIdempotencyKey(data: FirebaseFirestore.DocumentData): IdempotencyKeyDocument {

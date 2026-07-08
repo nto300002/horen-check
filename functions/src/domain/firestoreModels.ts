@@ -214,6 +214,18 @@ export interface ReportReplyDocument {
   createdAt: Date;
 }
 
+export interface ReportCorrectionDocument {
+  id: string;
+  reportId: string;
+  workerId: string;
+  organizationId: string;
+  previousText: string;
+  correctedText: string;
+  reason: string;
+  submittedAt: Date;
+  createdAt: Date;
+}
+
 export interface AuditLogDocument {
   id: string;
   organizationId: string;
@@ -283,6 +295,7 @@ export const collectionNames = [
   "notificationLogs",
   "consultationThreads",
   "reportReplies",
+  "reportCorrections",
   "auditLogs",
   "modeSwitchRequests",
   "idempotencyKeys"
