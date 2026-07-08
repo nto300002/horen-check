@@ -73,6 +73,10 @@ Route<void> _buildRoute(RouteSettings settings) {
   if (name == '/admin/assignments') {
     return _pageRoute(settings, const AdminAssignmentsPage());
   }
+  if (name.startsWith('/worker/today/report/')) {
+    final eventId = name.split('/').last;
+    return _pageRoute(settings, WorkerTodayReportPage(eventId: eventId));
+  }
 
   return _pageRoute(settings, const NotificationHomePage());
 }
@@ -881,6 +885,105 @@ class AdminAssignmentsPage extends StatelessWidget {
                 leading: Icon(Icons.info_outline),
                 title: Text('担当解除時は物理削除せず active=false として保存します'),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class WorkerTodayReportPage extends StatelessWidget {
+  const WorkerTodayReportPage({
+    super.key,
+    required this.eventId,
+  });
+
+  final String eventId;
+
+  @override
+  Widget build(BuildContext context) {
+    const generatedText = '''
+おはようございます。
+これから午前の作業を開始します。
+本日は在庫確認に取り組みます。
+相談したいこと：優先順位を相談したいです
+補足：午後に確認します''';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('AM_START報告'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: '対象イベント', value: eventId),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '今日やること',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '相談事項',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '自由入力',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 20),
+            const _SectionTitle('生成文確認'),
+            const TextField(
+              decoration: InputDecoration(
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 6,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              generatedText,
+              key: Key('generatedReportText'),
+            ),
+            const SizedBox(height: 20),
+            const _SectionTitle('送信先確認'),
+            CheckboxListTile(
+              value: true,
+              onChanged: (_) {},
+              title: const Text('Supporter One'),
+              subtitle: const Text('supporter@example.com'),
+            ),
+            CheckboxListTile(
+              value: true,
+              onChanged: (_) {},
+              title: const Text('Manager One'),
+              subtitle: const Text('manager@example.com'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.send),
+              label: const Text('送信する'),
+            ),
+            const SizedBox(height: 20),
+            const _SectionTitle('送信完了'),
+            const _StatusTile(label: 'reportEvents.status', value: 'reported'),
+            const _StatusTile(label: 'delivery', value: 'manager@example.com failed'),
+            OutlinedButton.icon(
+              key: const Key('retryReportDeliveryButton'),
+              onPressed: () {},
+              icon: const Icon(Icons.refresh),
+              label: const Text('再送'),
             ),
           ],
         ),
