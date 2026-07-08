@@ -145,14 +145,14 @@ void main() {
     expect(find.text('自由入力'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('生成文確認'),
+      find.text('生成文確認').first,
       300,
     );
     expect(find.text('生成文確認'), findsOneWidget);
     expect(find.textContaining('本日は在庫確認に取り組みます。'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('送信先確認'),
+      find.text('送信先確認').first,
       300,
     );
     expect(find.text('送信先確認'), findsOneWidget);
@@ -160,7 +160,7 @@ void main() {
     expect(find.text('Manager One'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('再送'),
+      find.text('再送').first,
       300,
     );
     expect(find.text('送信完了'), findsOneWidget);
