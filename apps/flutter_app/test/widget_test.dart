@@ -147,6 +147,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('生成文確認').first,
       300,
+      scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('生成文確認'), findsOneWidget);
     expect(find.textContaining('本日は在庫確認に取り組みます。'), findsOneWidget);
@@ -154,6 +155,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('送信先確認').first,
       300,
+      scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('送信先確認'), findsOneWidget);
     expect(find.text('Supporter One'), findsOneWidget);
@@ -162,6 +164,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('再送').first,
       300,
+      scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('送信完了'), findsOneWidget);
     expect(find.text('reported'), findsOneWidget);
