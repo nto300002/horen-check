@@ -73,6 +73,17 @@ Route<void> _buildRoute(RouteSettings settings) {
   if (name == '/admin/assignments') {
     return _pageRoute(settings, const AdminAssignmentsPage());
   }
+  if (name == '/worker/reports') {
+    return _pageRoute(settings, const WorkerReportsPage());
+  }
+  if (name.startsWith('/worker/reports/') && name.endsWith('/correction')) {
+    final parts = name.split('/');
+    return _pageRoute(settings, WorkerReportCorrectionPage(reportId: parts[3]));
+  }
+  if (name.startsWith('/worker/reports/')) {
+    final reportId = name.split('/').last;
+    return _pageRoute(settings, WorkerReportDetailPage(reportId: reportId));
+  }
   if (name.startsWith('/worker/today/report/')) {
     final eventId = name.split('/').last;
     return _pageRoute(settings, WorkerTodayReportPage(eventId: eventId));
@@ -984,6 +995,128 @@ class WorkerTodayReportPage extends StatelessWidget {
               onPressed: () {},
               icon: const Icon(Icons.refresh),
               label: const Text('再送'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class WorkerReportsPage extends StatelessWidget {
+  const WorkerReportsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('報告履歴'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const _StatusTile(label: '表示範囲', value: '過去90日分'),
+            Card(
+              child: ListTile(
+                onTap: () => Navigator.pushNamed(context, '/worker/reports/report-1'),
+                leading: const Icon(Icons.description_outlined),
+                title: const Text('AM_START / 2026/07/07 09:05'),
+                subtitle: const Text('送信先: Supporter One / 送信状態: failed / 相談あり'),
+                trailing: const Icon(Icons.chevron_right),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class WorkerReportDetailPage extends StatelessWidget {
+  const WorkerReportDetailPage({
+    super.key,
+    required this.reportId,
+  });
+
+  final String reportId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('報告詳細'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: 'reportId', value: reportId),
+            const _StatusTile(label: 'reportEvents.status', value: 'reported'),
+            const SizedBox(height: 12),
+            const _SectionTitle('報告本文'),
+            const Text('おはようございます。午前は在庫確認を進めます。'),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () => Navigator.pushNamed(
+                context,
+                '/worker/reports/$reportId/correction',
+              ),
+              icon: const Icon(Icons.edit_note),
+              label: const Text('訂正版作成'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.refresh),
+              label: const Text('再送'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class WorkerReportCorrectionPage extends StatelessWidget {
+  const WorkerReportCorrectionPage({
+    super.key,
+    required this.reportId,
+  });
+
+  final String reportId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('訂正版作成'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: '対象報告', value: reportId),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '訂正理由',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '訂正文',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 6,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.save),
+              label: const Text('訂正版を作成'),
             ),
           ],
         ),

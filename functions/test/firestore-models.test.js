@@ -20,6 +20,7 @@ test("exports all Firestore collections from the detailed design", () => {
     "notificationLogs",
     "consultationThreads",
     "reportReplies",
+    "reportCorrections",
     "auditLogs",
     "modeSwitchRequests",
     "idempotencyKeys"
