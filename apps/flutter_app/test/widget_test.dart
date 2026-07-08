@@ -131,4 +131,40 @@ void main() {
     expect(find.text('担当解除'), findsOneWidget);
     expect(find.textContaining('active=false'), findsOneWidget);
   });
+
+  testWidgets('renders worker AM_START report creation and retry affordance', (tester) async {
+    await tester.pumpWidget(
+      const HorenCheckApp(initialRoute: '/worker/today/report/event-1'),
+    );
+
+    expect(find.text('AM_START報告'), findsOneWidget);
+    expect(find.text('対象イベント'), findsOneWidget);
+    expect(find.text('event-1'), findsOneWidget);
+    expect(find.text('今日やること'), findsOneWidget);
+    expect(find.text('相談事項'), findsOneWidget);
+    expect(find.text('自由入力'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('生成文確認'),
+      300,
+    );
+    expect(find.text('生成文確認'), findsOneWidget);
+    expect(find.textContaining('本日は在庫確認に取り組みます。'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('送信先確認'),
+      300,
+    );
+    expect(find.text('送信先確認'), findsOneWidget);
+    expect(find.text('Supporter One'), findsOneWidget);
+    expect(find.text('Manager One'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('再送'),
+      300,
+    );
+    expect(find.text('送信完了'), findsOneWidget);
+    expect(find.text('reported'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '再送'), findsOneWidget);
+  });
 }

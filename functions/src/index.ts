@@ -20,11 +20,14 @@ import {
 } from "./usecase/manageNotificationSchedule";
 import {
   AssignmentDocument,
+  IdempotencyKeyDocument,
   InvitationDocument,
   NotificationEventDocument,
   NotificationLogDocument,
   NotificationScheduleDocument,
   NotificationSettingsDocument,
+  ReportDeliveryDocument,
+  ReportDocument,
   ReportEventDocument,
   ReportScheduleDocument,
   UserDocument,
@@ -57,6 +60,11 @@ import {
   generateDailyReportEventDocuments,
   sendDueReportReminders
 } from "./usecase/manageReportEvent";
+import {
+  retryReportDeliveryDocument,
+  submitReportDocuments,
+  SubmitReportError
+} from "./usecase/submitReport";
 
 if (getApps().length === 0) {
   initializeApp();
@@ -608,6 +616,131 @@ export const api = onRequest(async (request, response) => {
     return;
   }
 
+  if (request.method === "POST" && request.path === "/submitReport") {
+    try {
+      const db = getFirestore();
+      const workerId = String(request.body?.workerId ?? "");
+      const eventId = String(request.body?.eventId ?? "");
+      const idempotencyKey = String(request.body?.idempotencyKey ?? "");
+      const eventRef = db.collection("reportEvents").doc(eventId);
+      const eventSnapshot = await eventRef.get();
+      if (!eventSnapshot.exists) {
+        throw new SubmitReportError("REPORT_EVENT_NOT_FOUND", "report event was not found");
+      }
+      const event = normalizeReportEvent(eventSnapshot.data() ?? {});
+      const reportRef = db.collection("reports").doc(String(request.body?.reportId ?? db.collection("reports").doc().id));
+      const idempotencyRef = db.collection("idempotencyKeys").doc(`${workerId}_submitReport_${idempotencyKey}`);
+      const [
+        workerSettingsSnapshot,
+        assignmentSnapshot,
+        existingReportsSnapshot,
+        idempotencySnapshot
+      ] = await Promise.all([
+        db.collection("workerSettings").doc(workerId).get(),
+        db.collection("assignments").doc(workerId).get(),
+        db.collection("reports").where("eventId", "==", eventId).get(),
+        idempotencyRef.get()
+      ]);
+
+      if (!workerSettingsSnapshot.exists) {
+        throw new SubmitReportError("WORKER_SETTINGS_NOT_FOUND", "worker settings were not found");
+      }
+      if (!assignmentSnapshot.exists) {
+        throw new SubmitReportError("ASSIGNMENT_NOT_FOUND", "assignment was not found");
+      }
+      const assignment = normalizeAssignment(assignmentSnapshot.data() ?? {});
+      const recipientIds = [assignment.managerId, assignment.supporterId].filter(
+        (id): id is string => id !== undefined
+      );
+      const recipientSnapshots = await Promise.all(
+        recipientIds.map((id) => db.collection("users").doc(id).get())
+      );
+      const recipientUsersById = Object.fromEntries(
+        recipientSnapshots
+          .filter((snapshot) => snapshot.exists)
+          .map((snapshot) => {
+            const user = normalizeUser(snapshot.data() ?? {});
+            return [user.id, user];
+          })
+      );
+
+      const result = await submitReportDocuments({
+        reportId: reportRef.id,
+        idempotencyKey,
+        requestHash: JSON.stringify(request.body ?? {}),
+        workerId,
+        event,
+        workerSettings: normalizeWorkerSettings(workerSettingsSnapshot.data() ?? {}),
+        assignment,
+        existingReports: existingReportsSnapshot.docs.map((doc) => normalizeReport(doc.data())),
+        existingIdempotencyKey: idempotencySnapshot.exists
+          ? normalizeIdempotencyKey(idempotencySnapshot.data() ?? {})
+          : undefined,
+        recipientUsersById,
+        input: {
+          todayPlan: String(request.body?.todayPlan ?? ""),
+          consultation: request.body?.consultation,
+          freeText: request.body?.freeText,
+          editedText: request.body?.editedText,
+          workerSelectedRecipients: asStringArrayOrUndefined(request.body?.workerSelectedRecipients),
+          workerExcludedRecipients: asStringArrayOrUndefined(request.body?.workerExcludedRecipients)
+        },
+        deliverySender: async () => undefined
+      });
+
+      if (!result.idempotent && result.report !== undefined && result.reportEvent !== undefined
+        && result.auditLog !== undefined) {
+        const batch = db.batch();
+        batch.set(reportRef, result.report);
+        batch.set(eventRef, result.reportEvent);
+        batch.set(idempotencyRef, result.idempotencyKey);
+        batch.set(db.collection("auditLogs").doc(result.auditLog.id), result.auditLog);
+        for (const delivery of result.deliveries) {
+          batch.set(db.collection("reportDeliveries").doc(delivery.id), delivery);
+        }
+        await batch.commit();
+      }
+
+      response.json({
+        status: "ok",
+        idempotent: result.idempotent,
+        report: result.report,
+        reportEvent: result.reportEvent,
+        reportDeliveries: result.deliveries,
+        auditLog: result.auditLog,
+        idempotencyKey: result.idempotencyKey
+      });
+    } catch (error) {
+      writeSubmitReportError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/retryReportDelivery") {
+    try {
+      const db = getFirestore();
+      const deliveryId = String(request.body?.deliveryId ?? "");
+      const deliveryRef = db.collection("reportDeliveries").doc(deliveryId);
+      const snapshot = await deliveryRef.get();
+      if (!snapshot.exists) {
+        throw new SubmitReportError("REPORT_DELIVERY_NOT_FOUND", "report delivery was not found");
+      }
+      const delivery = await retryReportDeliveryDocument({
+        existingDelivery: normalizeReportDelivery(snapshot.data() ?? {}),
+        deliverySender: async () => undefined
+      });
+      await deliveryRef.set(delivery);
+
+      response.json({
+        status: "ok",
+        reportDelivery: delivery
+      });
+    } catch (error) {
+      writeSubmitReportError(response, error);
+    }
+    return;
+  }
+
   if (request.method === "POST" && request.path === "/inviteUser") {
     try {
       const db = getFirestore();
@@ -931,6 +1064,26 @@ function writeReportScheduleError(
   });
 }
 
+function writeSubmitReportError(
+  response: Parameters<Parameters<typeof onRequest>[0]>[1],
+  error: unknown
+): void {
+  if (error instanceof SubmitReportError || error instanceof RecipientResolutionError) {
+    response.status(400).json({
+      error: "invalid_argument",
+      errorCode: error.code,
+      message: error.message,
+      missingRecipients: error instanceof RecipientResolutionError ? error.missingRecipients : undefined
+    });
+    return;
+  }
+
+  response.status(400).json({
+    error: "invalid_argument",
+    message: error instanceof Error ? error.message : "Invalid request"
+  });
+}
+
 function writeAdminUserManagementError(
   response: Parameters<Parameters<typeof onRequest>[0]>[1],
   error: unknown
@@ -1037,6 +1190,32 @@ function normalizeReportEvent(data: FirebaseFirestore.DocumentData): ReportEvent
     createdAt: asDate(data.createdAt),
     updatedAt: asDate(data.updatedAt)
   } as ReportEventDocument;
+}
+
+function normalizeReport(data: FirebaseFirestore.DocumentData): ReportDocument {
+  return {
+    ...data,
+    submittedAt: asDate(data.submittedAt),
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as ReportDocument;
+}
+
+function normalizeReportDelivery(data: FirebaseFirestore.DocumentData): ReportDeliveryDocument {
+  return {
+    ...data,
+    sentAt: data.sentAt === undefined ? undefined : asDate(data.sentAt),
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as ReportDeliveryDocument;
+}
+
+function normalizeIdempotencyKey(data: FirebaseFirestore.DocumentData): IdempotencyKeyDocument {
+  return {
+    ...data,
+    createdAt: asDate(data.createdAt),
+    expiresAt: asDate(data.expiresAt)
+  } as IdempotencyKeyDocument;
 }
 
 function normalizeLog(data: FirebaseFirestore.DocumentData): NotificationLogDocument {
