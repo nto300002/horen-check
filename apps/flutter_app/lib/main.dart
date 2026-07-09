@@ -109,6 +109,16 @@ Route<void> _buildRoute(RouteSettings settings) {
   if (name == '/manager/workers') {
     return _pageRoute(settings, const ManagerWorkersPage());
   }
+  if (name == '/manager/consultations') {
+    return _pageRoute(settings, const ConsultationThreadsPage(actorRole: 'manager'));
+  }
+  if (name.startsWith('/manager/consultations/')) {
+    final threadId = name.split('/').last;
+    return _pageRoute(settings, ConsultationThreadDetailPage(
+      threadId: threadId,
+      actorRole: 'manager',
+    ));
+  }
   if (name.startsWith('/manager/reports/')) {
     final reportId = name.split('/').last;
     return _pageRoute(settings, ManagerReportDetailPage(reportId: reportId));
@@ -121,6 +131,16 @@ Route<void> _buildRoute(RouteSettings settings) {
   }
   if (name == '/supporter/mode-switch-requests') {
     return _pageRoute(settings, const SupporterModeSwitchRequestsPage());
+  }
+  if (name == '/supporter/consultations') {
+    return _pageRoute(settings, const ConsultationThreadsPage(actorRole: 'supporter'));
+  }
+  if (name.startsWith('/supporter/consultations/')) {
+    final threadId = name.split('/').last;
+    return _pageRoute(settings, ConsultationThreadDetailPage(
+      threadId: threadId,
+      actorRole: 'supporter',
+    ));
   }
   if (name.startsWith('/supporter/mode-switch-requests/')) {
     final requestId = name.split('/').last;
@@ -136,6 +156,16 @@ Route<void> _buildRoute(RouteSettings settings) {
   if (name.startsWith('/supporter/reports/')) {
     final reportId = name.split('/').last;
     return _pageRoute(settings, SupporterReportDetailPage(reportId: reportId));
+  }
+  if (name == '/worker/consultations') {
+    return _pageRoute(settings, const ConsultationThreadsPage(actorRole: 'worker'));
+  }
+  if (name.startsWith('/worker/consultations/')) {
+    final threadId = name.split('/').last;
+    return _pageRoute(settings, ConsultationThreadDetailPage(
+      threadId: threadId,
+      actorRole: 'worker',
+    ));
   }
   if (name == '/worker/reports') {
     return _pageRoute(settings, const WorkerReportsPage());
@@ -263,6 +293,26 @@ class ReviewReportItem {
   final String status;
   final String body;
   final bool hasConsultation;
+}
+
+class ConsultationThreadItem {
+  const ConsultationThreadItem({
+    required this.id,
+    required this.reportId,
+    required this.workerName,
+    required this.type,
+    required this.status,
+    required this.lastMessage,
+    required this.reply,
+  });
+
+  final String id;
+  final String reportId;
+  final String workerName;
+  final String type;
+  final String status;
+  final String lastMessage;
+  final String reply;
 }
 
 class SupporterWorkerItem {
@@ -424,6 +474,18 @@ const reviewReports = [
     status: 'consultation',
     body: 'おはようございます。午前は在庫確認を進めます。優先順位について相談があります。',
     hasConsultation: true,
+  ),
+];
+
+const consultationThreads = [
+  ConsultationThreadItem(
+    id: 'report-1',
+    reportId: 'report-1',
+    workerName: 'Worker One',
+    type: 'AM_START',
+    status: 'open',
+    lastMessage: '優先順位について相談があります。',
+    reply: '午後は商品登録から進めましょう',
   ),
 ];
 
@@ -1591,6 +1653,102 @@ class SupporterReportDetailPage extends StatelessWidget {
                 border: OutlineInputBorder(),
               ),
               maxLines: 3,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ConsultationThreadsPage extends StatelessWidget {
+  const ConsultationThreadsPage({
+    super.key,
+    required this.actorRole,
+  });
+
+  final String actorRole;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('相談スレッド一覧'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            for (final thread in consultationThreads)
+              Card(
+                child: ListTile(
+                  onTap: () => Navigator.pushNamed(context, '/$actorRole/consultations/${thread.id}'),
+                  leading: const Icon(Icons.forum_outlined),
+                  title: Text('${thread.status} / ${actorRole == 'worker' ? thread.type : thread.workerName}'),
+                  subtitle: Text(thread.lastMessage),
+                  trailing: const Icon(Icons.chevron_right),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ConsultationThreadDetailPage extends StatelessWidget {
+  const ConsultationThreadDetailPage({
+    super.key,
+    required this.threadId,
+    required this.actorRole,
+  });
+
+  final String threadId;
+  final String actorRole;
+
+  @override
+  Widget build(BuildContext context) {
+    final thread = consultationThreads.firstWhere(
+      (item) => item.id == threadId,
+      orElse: () => consultationThreads.first,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('相談スレッド'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: 'threadStatus', value: thread.status),
+            _StatusTile(label: 'actorRole', value: actorRole),
+            _StatusTile(label: 'report', value: '${thread.type} / ${thread.workerName}'),
+            const SizedBox(height: 12),
+            const _SectionTitle('相談内容'),
+            Text(thread.lastMessage),
+            const SizedBox(height: 20),
+            const _SectionTitle('返信'),
+            Text(thread.reply),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '返信本文',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.reply),
+              label: const Text('返信する'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('完了にする'),
             ),
           ],
         ),

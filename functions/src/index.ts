@@ -46,7 +46,9 @@ import {
   NotificationScheduleDocument,
   NotificationSettingsDocument,
   ReportDeliveryDocument,
+  ConsultationThreadDocument,
   ReportCorrectionDocument,
+  ReportReplyDocument,
   ReportDocument,
   ReportEventDocument,
   ReportScheduleDocument,
@@ -91,6 +93,14 @@ import {
   listReportCorrections,
   ReportHistoryError
 } from "./usecase/manageReportHistory";
+import {
+  closeConsultationThreadDocument,
+  ConsultationThreadError,
+  confirmReportReplyDocument,
+  createReportReplyDocuments,
+  getConsultationThreadDetail,
+  listManagerConsultationThreads
+} from "./usecase/manageConsultationThread";
 
 if (getApps().length === 0) {
   initializeApp();
@@ -705,6 +715,8 @@ export const api = onRequest(async (request, response) => {
         recipientUsersById,
         input: {
           todayPlan: String(request.body?.todayPlan ?? ""),
+          completedWork: request.body?.completedWork === undefined ? undefined : String(request.body.completedWork),
+          afternoonPlan: request.body?.afternoonPlan === undefined ? undefined : String(request.body.afternoonPlan),
           consultation: request.body?.consultation,
           freeText: request.body?.freeText,
           editedText: request.body?.editedText,
@@ -724,6 +736,9 @@ export const api = onRequest(async (request, response) => {
         for (const delivery of result.deliveries) {
           batch.set(db.collection("reportDeliveries").doc(delivery.id), delivery);
         }
+        if (result.consultationThread !== undefined) {
+          batch.set(db.collection("consultationThreads").doc(result.consultationThread.id), result.consultationThread);
+        }
         await batch.commit();
       }
 
@@ -733,6 +748,7 @@ export const api = onRequest(async (request, response) => {
         report: result.report,
         reportEvent: result.reportEvent,
         reportDeliveries: result.deliveries,
+        consultationThread: result.consultationThread,
         auditLog: result.auditLog,
         idempotencyKey: result.idempotencyKey
       });
@@ -763,6 +779,176 @@ export const api = onRequest(async (request, response) => {
       });
     } catch (error) {
       writeSubmitReportError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/createReportReply") {
+    try {
+      const db = getFirestore();
+      const threadId = String(request.body?.threadId ?? "");
+      const actorId = String(request.body?.actorId ?? "");
+      const actorRole = String(request.body?.actorRole ?? "") as UserRole;
+      const threadRef = db.collection("consultationThreads").doc(threadId);
+      const threadSnapshot = await threadRef.get();
+      if (!threadSnapshot.exists) {
+        throw new ConsultationThreadError("CONSULTATION_THREAD_NOT_FOUND", "consultation thread was not found");
+      }
+      const thread = normalizeConsultationThread(threadSnapshot.data() ?? {});
+      const reportSnapshot = await db.collection("reports").doc(thread.reportId).get();
+      if (!reportSnapshot.exists) {
+        throw new ConsultationThreadError("REPORT_NOT_FOUND", "report was not found");
+      }
+      const replyRef = db.collection("reportReplies").doc(String(request.body?.replyId ?? db.collection("reportReplies").doc().id));
+      const result = createReportReplyDocuments({
+        replyId: replyRef.id,
+        thread,
+        report: normalizeReport(reportSnapshot.data() ?? {}),
+        actorId,
+        actorRole,
+        body: String(request.body?.body ?? "")
+      });
+      const batch = db.batch();
+      batch.set(replyRef, result.reply);
+      for (const log of result.notificationLogs) {
+        batch.set(db.collection("notificationLogs").doc(log.id), log);
+      }
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        reportReply: result.reply,
+        notificationLogs: result.notificationLogs
+      });
+    } catch (error) {
+      writeConsultationThreadError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/closeConsultationThread") {
+    try {
+      const db = getFirestore();
+      const threadId = String(request.body?.threadId ?? "");
+      const threadRef = db.collection("consultationThreads").doc(threadId);
+      const threadSnapshot = await threadRef.get();
+      if (!threadSnapshot.exists) {
+        throw new ConsultationThreadError("CONSULTATION_THREAD_NOT_FOUND", "consultation thread was not found");
+      }
+      const thread = normalizeConsultationThread(threadSnapshot.data() ?? {});
+      const reportSnapshot = await db.collection("reports").doc(thread.reportId).get();
+      if (!reportSnapshot.exists) {
+        throw new ConsultationThreadError("REPORT_NOT_FOUND", "report was not found");
+      }
+      const updated = closeConsultationThreadDocument({
+        thread,
+        report: normalizeReport(reportSnapshot.data() ?? {}),
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole
+      });
+      await threadRef.set(updated);
+
+      response.json({
+        status: "ok",
+        consultationThread: updated
+      });
+    } catch (error) {
+      writeConsultationThreadError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/confirmReportReply") {
+    try {
+      const db = getFirestore();
+      const replyId = String(request.body?.replyId ?? "");
+      const replySnapshot = await db.collection("reportReplies").doc(replyId).get();
+      if (!replySnapshot.exists) {
+        throw new ConsultationThreadError("REPORT_REPLY_NOT_FOUND", "report reply was not found");
+      }
+      const reply = normalizeReportReply(replySnapshot.data() ?? {});
+      const threadSnapshot = await db.collection("consultationThreads").doc(reply.threadId).get();
+      if (!threadSnapshot.exists) {
+        throw new ConsultationThreadError("CONSULTATION_THREAD_NOT_FOUND", "consultation thread was not found");
+      }
+      const thread = normalizeConsultationThread(threadSnapshot.data() ?? {});
+      const reportSnapshot = await db.collection("reports").doc(reply.reportId).get();
+      if (!reportSnapshot.exists) {
+        throw new ConsultationThreadError("REPORT_NOT_FOUND", "report was not found");
+      }
+      const result = confirmReportReplyDocument({
+        thread,
+        report: normalizeReport(reportSnapshot.data() ?? {}),
+        reply,
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole
+      });
+      await db.collection("auditLogs").doc(result.auditLog.id).set(result.auditLog);
+
+      response.json({
+        status: "ok",
+        auditLog: result.auditLog
+      });
+    } catch (error) {
+      writeConsultationThreadError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "GET" && request.path === "/listManagerConsultationThreads") {
+    try {
+      const db = getFirestore();
+      const managerId = String(request.query.managerId ?? "");
+      const [threadsSnapshot, reportsSnapshot] = await Promise.all([
+        db.collection("consultationThreads").get(),
+        db.collection("reports").get()
+      ]);
+      const threads = listManagerConsultationThreads({
+        managerId,
+        threads: threadsSnapshot.docs.map((doc) => normalizeConsultationThread(doc.data())),
+        reports: reportsSnapshot.docs.map((doc) => normalizeReport(doc.data()))
+      });
+
+      response.json({
+        status: "ok",
+        consultationThreads: threads
+      });
+    } catch (error) {
+      writeConsultationThreadError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "GET" && request.path === "/getConsultationThreadDetail") {
+    try {
+      const db = getFirestore();
+      const threadId = String(request.query.threadId ?? "");
+      const threadSnapshot = await db.collection("consultationThreads").doc(threadId).get();
+      if (!threadSnapshot.exists) {
+        throw new ConsultationThreadError("CONSULTATION_THREAD_NOT_FOUND", "consultation thread was not found");
+      }
+      const thread = normalizeConsultationThread(threadSnapshot.data() ?? {});
+      const [reportSnapshot, repliesSnapshot] = await Promise.all([
+        db.collection("reports").doc(thread.reportId).get(),
+        db.collection("reportReplies").where("threadId", "==", thread.id).get()
+      ]);
+      if (!reportSnapshot.exists) {
+        throw new ConsultationThreadError("REPORT_NOT_FOUND", "report was not found");
+      }
+      const detail = getConsultationThreadDetail({
+        thread,
+        report: normalizeReport(reportSnapshot.data() ?? {}),
+        replies: repliesSnapshot.docs.map((doc) => normalizeReportReply(doc.data())),
+        actorId: String(request.query.actorId ?? ""),
+        actorRole: String(request.query.actorRole ?? "") as UserRole
+      });
+
+      response.json({
+        status: "ok",
+        consultationThread: detail
+      });
+    } catch (error) {
+      writeConsultationThreadError(response, error);
     }
     return;
   }
@@ -1568,6 +1754,25 @@ function writeReportReviewError(
   });
 }
 
+function writeConsultationThreadError(
+  response: Parameters<Parameters<typeof onRequest>[0]>[1],
+  error: unknown
+): void {
+  if (error instanceof ConsultationThreadError) {
+    response.status(400).json({
+      error: "invalid_argument",
+      errorCode: error.code,
+      message: error.message
+    });
+    return;
+  }
+
+  response.status(400).json({
+    error: "invalid_argument",
+    message: error instanceof Error ? error.message : "Invalid request"
+  });
+}
+
 function writeModeSwitchError(
   response: Parameters<Parameters<typeof onRequest>[0]>[1],
   error: unknown
@@ -1702,6 +1907,22 @@ function normalizeReport(data: FirebaseFirestore.DocumentData): ReportDocument {
     createdAt: asDate(data.createdAt),
     updatedAt: asDate(data.updatedAt)
   } as ReportDocument;
+}
+
+function normalizeConsultationThread(data: FirebaseFirestore.DocumentData): ConsultationThreadDocument {
+  return {
+    ...data,
+    closedAt: data.closedAt === undefined ? undefined : asDate(data.closedAt),
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as ConsultationThreadDocument;
+}
+
+function normalizeReportReply(data: FirebaseFirestore.DocumentData): ReportReplyDocument {
+  return {
+    ...data,
+    createdAt: asDate(data.createdAt)
+  } as ReportReplyDocument;
 }
 
 function normalizeReportDelivery(data: FirebaseFirestore.DocumentData): ReportDeliveryDocument {
