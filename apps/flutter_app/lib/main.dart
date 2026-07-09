@@ -1838,7 +1838,7 @@ class WorkerEmploymentTransitionRequestPage extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           children: [
             DropdownButtonFormField<String>(
-              value: 'general_employment',
+              initialValue: 'general_employment',
               items: const [
                 DropdownMenuItem(value: 'general_employment', child: Text('general_employment')),
                 DropdownMenuItem(value: 'supported_facility', child: Text('supported_facility')),
@@ -1875,11 +1875,11 @@ class WorkerEmploymentTransitionPendingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       appBar: AppBar(
-        title: Text('移行申請中'),
+        title: const Text('移行申請中'),
       ),
-      body: SafeArea(
+      body: const SafeArea(
         child: Padding(
           padding: EdgeInsets.all(20),
           child: Column(
