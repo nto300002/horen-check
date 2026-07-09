@@ -365,6 +365,8 @@ void main() {
     expect(find.text('AM_START報告'), findsOneWidget);
     expect(find.text('対象イベント'), findsOneWidget);
     expect(find.text('event-1'), findsOneWidget);
+    expect(find.textContaining('健康情報、障害情報、家庭事情など'), findsOneWidget);
+    expect(find.textContaining('人事評価や勤怠管理には使用しません'), findsOneWidget);
     expect(find.text('今日やること'), findsOneWidget);
     expect(find.text('相談事項'), findsOneWidget);
     expect(find.text('自由入力'), findsOneWidget);
@@ -394,6 +396,22 @@ void main() {
     expect(find.text('送信完了'), findsOneWidget);
     expect(find.text('reported'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, '再送'), findsOneWidget);
+  });
+
+  testWidgets('renders legal and privacy guidance routes', (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/legal/privacy'));
+
+    expect(find.text('プライバシーポリシー'), findsOneWidget);
+    expect(find.textContaining('診断支援、医療情報管理、勤怠管理、人事評価を目的としません'), findsOneWidget);
+    expect(find.textContaining('問い合わせ窓口'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/legal/terms',
+    ));
+    expect(find.text('利用規約'), findsOneWidget);
+    expect(find.textContaining('通知やメールの不達、遅延、端末設定による未着について'), findsOneWidget);
+    expect(find.textContaining('業務報告に不要なセンシティブ情報'), findsOneWidget);
   });
 
   testWidgets('renders worker AM_END, PM_START, and PM_END report fields', (tester) async {

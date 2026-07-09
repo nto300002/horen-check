@@ -12,6 +12,7 @@ export interface GenerateDailyReportEventsInput {
   schedules: ReportScheduleDocument[];
   existingEvents: ReportEventDocument[];
   workerSettingsByWorkerId: Record<string, WorkerSettingsDocument | undefined>;
+  activeUserIds?: Set<string>;
   targetDate: Date;
 }
 
@@ -60,6 +61,10 @@ function shouldGenerate(schedule: ReportScheduleDocument, targetDate: Date): boo
     && schedule.dayOfWeek.includes(targetDate.getUTCDay());
 }
 
+function isActiveWorker(schedule: ReportScheduleDocument, activeUserIds?: Set<string>): boolean {
+  return activeUserIds === undefined || activeUserIds.has(schedule.workerId);
+}
+
 function reportEventId(input: {
   workerId: string;
   type: string;
@@ -84,6 +89,7 @@ export function generateDailyReportEventDocuments(
 
   return input.schedules
     .filter((schedule) => shouldGenerate(schedule, input.targetDate))
+    .filter((schedule) => isActiveWorker(schedule, input.activeUserIds))
     .flatMap((schedule) => {
       const workerSettings = input.workerSettingsByWorkerId[schedule.workerId];
       if (workerSettings === undefined) {

@@ -208,6 +208,12 @@ Route<void> _buildRoute(RouteSettings settings) {
     final eventId = name.split('/').last;
     return _pageRoute(settings, WorkerTodayReportPage(eventId: eventId));
   }
+  if (name == '/legal/privacy') {
+    return _pageRoute(settings, const PrivacyPolicyPage());
+  }
+  if (name == '/legal/terms') {
+    return _pageRoute(settings, const TermsOfServicePage());
+  }
 
   return _pageRoute(settings, const NotificationHomePage());
 }
@@ -2217,6 +2223,8 @@ class WorkerTodayReportPage extends StatelessWidget {
           children: [
             _StatusTile(label: '対象イベント', value: eventId),
             const SizedBox(height: 12),
+            const _SensitiveInfoNotice(),
+            const SizedBox(height: 12),
             TextField(
               decoration: InputDecoration(
                 labelText: _primaryReportFieldLabel(reportType),
@@ -2604,6 +2612,103 @@ class _ModeSwitchPanel extends StatelessWidget {
               onPressed: () => Navigator.pushNamed(context, '/notification/mode-switch'),
               icon: const Icon(Icons.sync_alt),
               label: const Text('報告支援モードへ切り替え'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class PrivacyPolicyPage extends StatelessWidget {
+  const PrivacyPolicyPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('プライバシーポリシー'),
+      ),
+      body: const SafeArea(
+        child: ListView(
+          padding: EdgeInsets.all(20),
+          children: [
+            _SectionTitle('利用目的'),
+            Text('ホウレンチェックは、報告タイミングの通知、報告文作成支援、報連相支援、一般就労移行および定着支援のために必要な情報を扱います。診断支援、医療情報管理、勤怠管理、人事評価を目的としません。'),
+            SizedBox(height: 16),
+            _SectionTitle('保存期間'),
+            Text('通知イベントと通知ログは30日、報告本文と送信履歴は180日を目安に削除または匿名化します。監査ログは不正防止と説明責任のため保存し、本文の閲覧理由を記録します。'),
+            SizedBox(height: 16),
+            _SectionTitle('問い合わせ窓口'),
+            Text('問い合わせ窓口: support@example.com'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TermsOfServicePage extends StatelessWidget {
+  const TermsOfServicePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('利用規約'),
+      ),
+      body: const SafeArea(
+        child: ListView(
+          padding: EdgeInsets.all(20),
+          children: [
+            _SectionTitle('サービスの位置づけ'),
+            Text('本サービスは報連相支援ツールです。勤怠管理、給与管理、人事評価、医療情報管理、障害情報管理、診断支援には使用しません。'),
+            SizedBox(height: 16),
+            _SectionTitle('入力時の注意'),
+            Text('報告本文および相談内容には、業務報告に不要なセンシティブ情報を入力しないでください。体調、診断名、家庭事情などは必要最小限にしてください。'),
+            SizedBox(height: 16),
+            _SectionTitle('通知とメール'),
+            Text('通知やメールの不達、遅延、端末設定による未着について、サービスは完全な到達を保証しません。重要な連絡は必要に応じて別手段でも確認してください。'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SensitiveInfoNotice extends StatelessWidget {
+  const _SensitiveInfoNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.privacy_tip_outlined),
+                SizedBox(width: 8),
+                Expanded(child: Text('センシティブ情報の入力に注意')),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text('健康情報、障害情報、家庭事情など、業務報告に不要なセンシティブ情報は入力しないでください。この報告は報連相支援のために使い、人事評価や勤怠管理には使用しません。'),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pushNamed(context, '/legal/privacy'),
+                  child: const Text('プライバシー'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pushNamed(context, '/legal/terms'),
+                  child: const Text('利用規約'),
+                ),
+              ],
             ),
           ],
         ),
