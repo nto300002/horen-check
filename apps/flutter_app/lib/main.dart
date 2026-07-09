@@ -92,6 +92,16 @@ Route<void> _buildRoute(RouteSettings settings) {
   if (name == '/admin/mode-switch-requests') {
     return _pageRoute(settings, const AdminModeSwitchRequestsPage());
   }
+  if (name == '/admin/employment-transitions') {
+    return _pageRoute(settings, const EmploymentTransitionsPage(actorRole: 'admin'));
+  }
+  if (name.startsWith('/admin/employment-transitions/')) {
+    final transitionId = name.split('/').last;
+    return _pageRoute(settings, EmploymentTransitionDetailPage(
+      transitionId: transitionId,
+      actorRole: 'admin',
+    ));
+  }
   if (name.startsWith('/admin/mode-switch-requests/')) {
     final requestId = name.split('/').last;
     return _pageRoute(settings, ModeSwitchRequestDetailPage(
@@ -132,6 +142,16 @@ Route<void> _buildRoute(RouteSettings settings) {
   if (name == '/supporter/mode-switch-requests') {
     return _pageRoute(settings, const SupporterModeSwitchRequestsPage());
   }
+  if (name == '/supporter/employment-transitions') {
+    return _pageRoute(settings, const EmploymentTransitionsPage(actorRole: 'supporter'));
+  }
+  if (name.startsWith('/supporter/employment-transitions/')) {
+    final transitionId = name.split('/').last;
+    return _pageRoute(settings, EmploymentTransitionDetailPage(
+      transitionId: transitionId,
+      actorRole: 'supporter',
+    ));
+  }
   if (name == '/supporter/consultations') {
     return _pageRoute(settings, const ConsultationThreadsPage(actorRole: 'supporter'));
   }
@@ -166,6 +186,12 @@ Route<void> _buildRoute(RouteSettings settings) {
       threadId: threadId,
       actorRole: 'worker',
     ));
+  }
+  if (name == '/worker/employment-transition/request') {
+    return _pageRoute(settings, const WorkerEmploymentTransitionRequestPage());
+  }
+  if (name == '/worker/employment-transition/pending') {
+    return _pageRoute(settings, const WorkerEmploymentTransitionPendingPage());
   }
   if (name == '/worker/reports') {
     return _pageRoute(settings, const WorkerReportsPage());
@@ -363,6 +389,32 @@ class ModeSwitchRequestItem {
   final String reviewComment;
 }
 
+class EmploymentTransitionItem {
+  const EmploymentTransitionItem({
+    required this.id,
+    required this.workerName,
+    required this.fromContext,
+    required this.toContext,
+    required this.status,
+    required this.transitionRecipientPolicy,
+    required this.oldManagerId,
+    required this.newManagerId,
+    required this.oldSupporterId,
+    required this.newSupporterId,
+  });
+
+  final String id;
+  final String workerName;
+  final String fromContext;
+  final String toContext;
+  final String status;
+  final String transitionRecipientPolicy;
+  final String oldManagerId;
+  final String newManagerId;
+  final String oldSupporterId;
+  final String newSupporterId;
+}
+
 const amPmSchedules = [
   NotificationSchedule(
     id: 'AM_START',
@@ -532,6 +584,21 @@ const modeSwitchRequests = [
     message: '一般就労先で報告を安定させたいです',
     status: 'rejected',
     reviewComment: '担当者確認後に再申請してください',
+  ),
+];
+
+const employmentTransitions = [
+  EmploymentTransitionItem(
+    id: 'transition-1',
+    workerName: 'Worker One',
+    fromContext: 'supported_facility',
+    toContext: 'general_employment',
+    status: 'active',
+    transitionRecipientPolicy: 'manager_and_supporter',
+    oldManagerId: 'old-manager-1',
+    newManagerId: 'new-manager-1',
+    oldSupporterId: 'old-supporter-1',
+    newSupporterId: 'new-supporter-1',
   ),
 ];
 
@@ -1749,6 +1816,172 @@ class ConsultationThreadDetailPage extends StatelessWidget {
               onPressed: () {},
               icon: const Icon(Icons.check_circle_outline),
               label: const Text('完了にする'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class WorkerEmploymentTransitionRequestPage extends StatelessWidget {
+  const WorkerEmploymentTransitionRequestPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('一般就労移行希望申請'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            DropdownButtonFormField<String>(
+              value: 'general_employment',
+              items: const [
+                DropdownMenuItem(value: 'general_employment', child: Text('general_employment')),
+                DropdownMenuItem(value: 'supported_facility', child: Text('supported_facility')),
+              ],
+              onChanged: (_) {},
+              decoration: const InputDecoration(
+                labelText: '希望employmentContext',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: 'メッセージ',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 20),
+            FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.send),
+              label: const Text('申請する'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class WorkerEmploymentTransitionPendingPage extends StatelessWidget {
+  const WorkerEmploymentTransitionPendingPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      appBar: AppBar(
+        title: Text('移行申請中'),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _StatusTile(label: '申請状態', value: 'general_employment / pending'),
+              _StatusTile(label: 'メッセージ', value: '一般就労先でも報連相を安定させたいです'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class EmploymentTransitionsPage extends StatelessWidget {
+  const EmploymentTransitionsPage({
+    super.key,
+    required this.actorRole,
+  });
+
+  final String actorRole;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(actorRole == 'admin' ? '一般就労移行管理' : '一般就労移行一覧'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            for (final transition in employmentTransitions)
+              Card(
+                child: ListTile(
+                  onTap: () => Navigator.pushNamed(context, '/$actorRole/employment-transitions/${transition.id}'),
+                  leading: const Icon(Icons.work_history_outlined),
+                  title: Text('${transition.status} / ${transition.workerName}'),
+                  subtitle: Text('${transition.fromContext} -> ${transition.toContext}'),
+                  trailing: const Icon(Icons.chevron_right),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class EmploymentTransitionDetailPage extends StatelessWidget {
+  const EmploymentTransitionDetailPage({
+    super.key,
+    required this.transitionId,
+    required this.actorRole,
+  });
+
+  final String transitionId;
+  final String actorRole;
+
+  @override
+  Widget build(BuildContext context) {
+    final transition = employmentTransitions.firstWhere(
+      (item) => item.id == transitionId,
+      orElse: () => employmentTransitions.first,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('一般就労移行詳細'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: 'actorRole', value: actorRole),
+            _StatusTile(label: 'status', value: transition.status),
+            _StatusTile(label: 'from/to', value: '${transition.fromContext} -> ${transition.toContext}'),
+            _StatusTile(label: 'oldManagerId', value: transition.oldManagerId),
+            _StatusTile(label: 'newManagerId', value: transition.newManagerId),
+            _StatusTile(label: 'oldSupporterId', value: transition.oldSupporterId),
+            _StatusTile(label: 'newSupporterId', value: transition.newSupporterId),
+            _StatusTile(label: 'transitionRecipientPolicy', value: transition.transitionRecipientPolicy),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '完了理由',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('完了確認'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('キャンセル'),
             ),
           ],
         ),

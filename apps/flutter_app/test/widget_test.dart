@@ -228,6 +228,56 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, '完了にする'), findsOneWidget);
   });
 
+  testWidgets('renders employment transition request and review routes', (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/worker/employment-transition/request'));
+
+    expect(find.text('一般就労移行希望申請'), findsOneWidget);
+    expect(find.text('希望employmentContext'), findsOneWidget);
+    expect(find.text('メッセージ'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '申請する'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/worker/employment-transition/pending',
+    ));
+    expect(find.text('移行申請中'), findsOneWidget);
+    expect(find.textContaining('general_employment / pending'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/supporter/employment-transitions',
+    ));
+    expect(find.text('一般就労移行一覧'), findsOneWidget);
+    expect(find.textContaining('active / Worker One'), findsOneWidget);
+
+    await tester.tap(find.textContaining('active / Worker One'));
+    await tester.pumpAndSettle();
+    expect(find.text('一般就労移行詳細'), findsOneWidget);
+    expect(find.text('oldManagerId'), findsOneWidget);
+    expect(find.text('newManagerId'), findsOneWidget);
+    expect(find.text('transitionRecipientPolicy'), findsOneWidget);
+    expect(find.text('完了理由'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.widgetWithText(FilledButton, '完了確認'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.widgetWithText(FilledButton, '完了確認'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.widgetWithText(OutlinedButton, 'キャンセル'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.widgetWithText(OutlinedButton, 'キャンセル'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/admin/employment-transitions',
+    ));
+    expect(find.text('一般就労移行管理'), findsOneWidget);
+    expect(find.textContaining('active / Worker One'), findsOneWidget);
+  });
+
   testWidgets('renders admin audit logs and reason-gated report body view', (tester) async {
     await tester.pumpWidget(const HorenCheckApp(initialRoute: '/admin/audit-logs'));
 

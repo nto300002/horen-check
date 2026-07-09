@@ -22,6 +22,8 @@ test("exports all Firestore collections from the detailed design", () => {
     "reportReplies",
     "reportCorrections",
     "auditLogs",
+    "employmentTransitionRequests",
+    "employmentContextTransitions",
     "modeSwitchRequests",
     "idempotencyKeys"
   ]);

@@ -11,6 +11,7 @@ import {
   WorkerSettingsDocument
 } from "../domain/firestoreModels";
 import {
+  RecipientTransition,
   resolveRecipients,
   validateRequiredRecipients
 } from "./recipientResolution";
@@ -45,6 +46,7 @@ export interface SubmitReportInput {
   existingReports: ReportDocument[];
   existingIdempotencyKey?: IdempotencyKeyDocument;
   recipientUsersById: Record<string, UserDocument | undefined>;
+  transition?: RecipientTransition;
   input: SubmitReportBodyInput;
   deliverySender: (delivery: ReportDeliveryDocument) => Promise<void>;
 }
@@ -234,6 +236,7 @@ export async function submitReportDocuments(
     workerSettings: input.workerSettings,
     assignment: input.assignment,
     employmentContext: input.event.employmentContext,
+    transition: input.transition,
     workerSelectedRecipients: input.input.workerSelectedRecipients,
     workerExcludedRecipients: input.input.workerExcludedRecipients
   });

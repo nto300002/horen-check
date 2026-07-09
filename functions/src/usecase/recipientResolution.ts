@@ -14,6 +14,10 @@ export type RecipientPolicy =
 export interface RecipientTransition {
   id: string;
   status: "planned" | "active" | "completed" | "cancelled";
+  oldManagerId?: string;
+  newManagerId?: string;
+  oldSupporterId?: string;
+  newSupporterId?: string;
 }
 
 export interface ResolveRecipientsInput {
@@ -72,6 +76,34 @@ function recipientsForPolicy(
   return unique([assignment.managerId, assignment.supporterId]);
 }
 
+function transitionRecipientsForPolicy(
+  policy: RecipientPolicy,
+  transition: RecipientTransition,
+  fallbackAssignment: AssignmentDocument,
+  initialRecipients: string[]
+): string[] {
+  if (policy === "none" || policy === "initial_recipients") {
+    return recipientsForPolicy(policy, fallbackAssignment, initialRecipients);
+  }
+  if (policy === "manager") {
+    const transitionManagers = unique([transition.oldManagerId, transition.newManagerId]);
+    return transitionManagers.length > 0 ? transitionManagers : unique([fallbackAssignment.managerId]);
+  }
+  if (policy === "supporter") {
+    const transitionSupporters = unique([transition.oldSupporterId, transition.newSupporterId]);
+    return transitionSupporters.length > 0 ? transitionSupporters : unique([fallbackAssignment.supporterId]);
+  }
+  const transitionStaff = unique([
+    transition.oldManagerId,
+    transition.newManagerId,
+    transition.oldSupporterId,
+    transition.newSupporterId
+  ]);
+  return transitionStaff.length > 0
+    ? transitionStaff
+    : unique([fallbackAssignment.managerId, fallbackAssignment.supporterId]);
+}
+
 function defaultInitialRecipients(
   employmentContext: EmploymentContext,
   settings: WorkerSettingsDocument,
@@ -126,21 +158,37 @@ export function resolveRecipients(input: ResolveRecipientsInput): ResolvedRecipi
     input.workerSettings,
     input.assignment
   );
-  const initialRecipients = isActiveTransition(input)
-    ? recipientsForPolicy(
+  const activeTransition = isActiveTransition(input) ? input.transition : undefined;
+  const initialRecipients = activeTransition !== undefined
+    ? transitionRecipientsForPolicy(
       input.workerSettings.transitionRecipientPolicy as RecipientPolicy,
+      activeTransition,
       input.assignment,
       baseInitialRecipients
     )
     : baseInitialRecipients;
+  const allowedTransitionRecipients = activeTransition !== undefined
+    ? transitionRecipientsForPolicy(
+      "manager_and_supporter",
+      activeTransition,
+      input.assignment,
+      baseInitialRecipients
+    )
+    : [];
+  const allowedRecipientsWithTransition = unique([...allowedRecipients, ...allowedTransitionRecipients]);
 
-  const requiredRecipients = recipientsForPolicy(
-    (isActiveTransition(input)
-      ? input.workerSettings.transitionRecipientPolicy
-      : input.workerSettings.requiredRecipientPolicy) as RecipientPolicy,
-    input.assignment,
-    initialRecipients
-  );
+  const requiredRecipients = activeTransition !== undefined
+    ? transitionRecipientsForPolicy(
+      input.workerSettings.transitionRecipientPolicy as RecipientPolicy,
+      activeTransition,
+      input.assignment,
+      initialRecipients
+    )
+    : recipientsForPolicy(
+      input.workerSettings.requiredRecipientPolicy as RecipientPolicy,
+      input.assignment,
+      initialRecipients
+    );
 
   const requestedSelected = input.workerSelectedRecipients === undefined
     ? initialRecipients
@@ -155,7 +203,7 @@ export function resolveRecipients(input: ResolveRecipientsInput): ResolvedRecipi
     );
   }
 
-  assertAllowed(requestedSelected, allowedRecipients);
+  assertAllowed(requestedSelected, allowedRecipientsWithTransition);
   assertAllowed(requestedExcluded, initialRecipients);
 
   const selectedRecipients = orderRecipients(requestedSelected.filter(
