@@ -21,6 +21,13 @@ import {
   listSupporterWorkers,
   ReportReviewError
 } from "./usecase/manageReportReview";
+import {
+  cancelModeSwitchRequestDocument,
+  createModeSwitchRequestDocument,
+  listModeSwitchRequests,
+  ModeSwitchError,
+  reviewModeSwitchRequestDocuments
+} from "./usecase/manageModeSwitch";
 import { createNotificationUserProfileDocuments } from "./usecase/createNotificationUserProfile";
 import {
   createNotificationScheduleDocument,
@@ -33,6 +40,7 @@ import {
   AuditLogDocument,
   IdempotencyKeyDocument,
   InvitationDocument,
+  ModeSwitchRequestDocument,
   NotificationEventDocument,
   NotificationLogDocument,
   NotificationScheduleDocument,
@@ -1024,6 +1032,161 @@ export const api = onRequest(async (request, response) => {
     return;
   }
 
+  if (request.method === "GET" && request.path === "/listModeSwitchRequests") {
+    try {
+      const db = getFirestore();
+      const requestsSnapshot = await db.collection("modeSwitchRequests").get();
+      const requests = listModeSwitchRequests({
+        actorRole: String(request.query.actorRole ?? "supporter") as Extract<UserRole, "supporter" | "admin">,
+        actorEmail: request.query.actorEmail === undefined
+          ? undefined
+          : String(request.query.actorEmail),
+        requests: requestsSnapshot.docs.map((doc) => normalizeModeSwitchRequest(doc.data()))
+      });
+
+      response.json({
+        status: "ok",
+        modeSwitchRequests: requests
+      });
+    } catch (error) {
+      writeModeSwitchError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/createModeSwitchRequest") {
+    try {
+      const db = getFirestore();
+      const workerId = String(request.body?.workerId ?? "");
+      const workerSnapshot = await db.collection("users").doc(workerId).get();
+      if (!workerSnapshot.exists) {
+        throw new ModeSwitchError("WORKER_NOT_FOUND", "worker was not found");
+      }
+      const existingRequestsSnapshot = await db.collection("modeSwitchRequests")
+        .where("userId", "==", workerId)
+        .get();
+      const requestRef = db.collection("modeSwitchRequests").doc();
+      const result = createModeSwitchRequestDocument({
+        id: requestRef.id,
+        worker: normalizeUser(workerSnapshot.data() ?? {}),
+        requestMethod: String(request.body?.requestMethod ?? "supporter_email") as ModeSwitchRequestDocument["requestMethod"],
+        requestedSupporterEmail: request.body?.requestedSupporterEmail,
+        requestedSupporterId: request.body?.requestedSupporterId,
+        inviteTokenId: request.body?.inviteTokenId,
+        desiredEmploymentContext: String(
+          request.body?.desiredEmploymentContext ?? "supported_facility"
+        ) as EmploymentContext,
+        message: request.body?.message,
+        inheritNotificationSchedules: request.body?.inheritNotificationSchedules ?? true,
+        scheduleMigrationPolicy: String(
+          request.body?.scheduleMigrationPolicy ?? "convert_am_pm"
+        ) as ModeSwitchRequestDocument["scheduleMigrationPolicy"],
+        managerId: request.body?.managerId,
+        supporterId: request.body?.supporterId,
+        existingRequests: existingRequestsSnapshot.docs.map((doc) =>
+          normalizeModeSwitchRequest(doc.data())
+        )
+      });
+      await requestRef.set(result.request);
+
+      response.json({
+        status: "ok",
+        modeSwitchRequest: result.request
+      });
+    } catch (error) {
+      writeModeSwitchError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/cancelModeSwitchRequest") {
+    try {
+      const db = getFirestore();
+      const requestId = String(request.body?.requestId ?? "");
+      const requestRef = db.collection("modeSwitchRequests").doc(requestId);
+      const snapshot = await requestRef.get();
+      if (!snapshot.exists) {
+        throw new ModeSwitchError("MODE_SWITCH_REQUEST_NOT_FOUND", "mode switch request was not found");
+      }
+      const modeSwitchRequest = cancelModeSwitchRequestDocument({
+        request: normalizeModeSwitchRequest(snapshot.data() ?? {}),
+        workerId: String(request.body?.workerId ?? "")
+      });
+      await requestRef.set(modeSwitchRequest);
+
+      response.json({
+        status: "ok",
+        modeSwitchRequest
+      });
+    } catch (error) {
+      writeModeSwitchError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/reviewModeSwitchRequest") {
+    try {
+      const db = getFirestore();
+      const requestId = String(request.body?.requestId ?? "");
+      const requestRef = db.collection("modeSwitchRequests").doc(requestId);
+      const requestSnapshot = await requestRef.get();
+      if (!requestSnapshot.exists) {
+        throw new ModeSwitchError("MODE_SWITCH_REQUEST_NOT_FOUND", "mode switch request was not found");
+      }
+      const modeSwitchRequest = normalizeModeSwitchRequest(requestSnapshot.data() ?? {});
+      const [workerSnapshot, notificationSchedulesSnapshot] = await Promise.all([
+        db.collection("users").doc(modeSwitchRequest.userId).get(),
+        db.collection("notificationSchedules")
+          .where("userId", "==", modeSwitchRequest.userId)
+          .get()
+      ]);
+      if (!workerSnapshot.exists) {
+        throw new ModeSwitchError("WORKER_NOT_FOUND", "worker was not found");
+      }
+      const result = reviewModeSwitchRequestDocuments({
+        request: modeSwitchRequest,
+        worker: normalizeUser(workerSnapshot.data() ?? {}),
+        reviewerId: String(request.body?.reviewerId ?? ""),
+        reviewerRole: String(request.body?.reviewerRole ?? "supporter") as Extract<UserRole, "supporter" | "admin">,
+        decision: String(request.body?.decision ?? "approved") as "approved" | "rejected",
+        managerId: request.body?.managerId,
+        supporterId: request.body?.supporterId,
+        reviewComment: request.body?.reviewComment,
+        notificationSchedules: notificationSchedulesSnapshot.docs.map((doc) =>
+          normalizeSchedule(doc.data())
+        )
+      });
+
+      const batch = db.batch();
+      batch.set(requestRef, result.request);
+      batch.set(db.collection("users").doc(result.user.id), result.user);
+      batch.set(db.collection("auditLogs").doc(result.auditLog.id), result.auditLog);
+      if (result.workerSettings !== undefined) {
+        batch.set(db.collection("workerSettings").doc(result.workerSettings.userId), result.workerSettings);
+      }
+      if (result.assignment !== undefined) {
+        batch.set(db.collection("assignments").doc(result.assignment.workerId), result.assignment);
+      }
+      for (const reportSchedule of result.reportSchedules) {
+        batch.set(db.collection("reportSchedules").doc(reportSchedule.id), reportSchedule);
+      }
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        modeSwitchRequest: result.request,
+        user: result.user,
+        workerSettings: result.workerSettings,
+        assignment: result.assignment,
+        reportSchedules: result.reportSchedules,
+        auditLog: result.auditLog
+      });
+    } catch (error) {
+      writeModeSwitchError(response, error);
+    }
+    return;
+  }
+
   if (request.method === "POST" && request.path === "/inviteUser") {
     try {
       const db = getFirestore();
@@ -1405,6 +1568,25 @@ function writeReportReviewError(
   });
 }
 
+function writeModeSwitchError(
+  response: Parameters<Parameters<typeof onRequest>[0]>[1],
+  error: unknown
+): void {
+  if (error instanceof ModeSwitchError) {
+    response.status(400).json({
+      error: "invalid_argument",
+      errorCode: error.code,
+      message: error.message
+    });
+    return;
+  }
+
+  response.status(400).json({
+    error: "invalid_argument",
+    message: error instanceof Error ? error.message : "Invalid request"
+  });
+}
+
 function writeAdminUserManagementError(
   response: Parameters<Parameters<typeof onRequest>[0]>[1],
   error: unknown
@@ -1573,6 +1755,15 @@ function normalizeInvitation(data: FirebaseFirestore.DocumentData): InvitationDo
     createdAt: asDate(data.createdAt),
     updatedAt: asDate(data.updatedAt)
   } as InvitationDocument;
+}
+
+function normalizeModeSwitchRequest(data: FirebaseFirestore.DocumentData): ModeSwitchRequestDocument {
+  return {
+    ...data,
+    reviewedAt: data.reviewedAt === undefined ? undefined : asDate(data.reviewedAt),
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as ModeSwitchRequestDocument;
 }
 
 function normalizeUser(data: FirebaseFirestore.DocumentData): UserDocument {
