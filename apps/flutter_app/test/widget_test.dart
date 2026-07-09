@@ -197,6 +197,61 @@ void main() {
     expect(find.text('report_viewed'), findsOneWidget);
   });
 
+  testWidgets('renders notification mode switch request, pending, and rejected flows', (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/notification/mode-switch'));
+
+    expect(find.text('報告支援モード切り替え申請'), findsOneWidget);
+    expect(find.text('支援員メールアドレス'), findsOneWidget);
+    expect(find.text('希望employmentContext'), findsOneWidget);
+    expect(find.text('メッセージ'), findsOneWidget);
+    expect(find.text('AM/PM通知を報告スケジュールへ移行'), findsOneWidget);
+
+    await tester.tap(find.text('申請する'));
+    await tester.pumpAndSettle();
+    expect(find.text('切り替え申請中'), findsOneWidget);
+    expect(find.text('pending'), findsOneWidget);
+    expect(find.text('pending申請中は新規申請できません'), findsOneWidget);
+    expect(find.text('申請を取り消して再申請'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/notification/mode-switch/rejected',
+    ));
+    expect(find.text('切り替え申請却下'), findsOneWidget);
+    expect(find.textContaining('担当者確認後に再申請してください'), findsOneWidget);
+    expect(find.text('再申請する'), findsOneWidget);
+  });
+
+  testWidgets('renders supporter and admin mode switch review screens', (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/supporter/mode-switch-requests'));
+
+    expect(find.text('モード切替申請一覧'), findsOneWidget);
+    expect(find.text('Worker One'), findsOneWidget);
+    expect(find.textContaining('supported_facility / pending'), findsOneWidget);
+
+    await tester.tap(find.text('Worker One'));
+    await tester.pumpAndSettle();
+    expect(find.text('モード切替申請詳細'), findsOneWidget);
+    expect(find.text('managerId'), findsOneWidget);
+    expect(find.text('supporterId'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('convert_am_pm'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('convert_am_pm'), findsOneWidget);
+    expect(find.text('承認してworkerSettings/assignmentsを作成'), findsOneWidget);
+    expect(find.text('却下する'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/admin/mode-switch-requests',
+    ));
+    expect(find.text('モード切替申請管理'), findsOneWidget);
+    expect(find.text('Worker One'), findsOneWidget);
+    expect(find.text('Worker Two'), findsOneWidget);
+  });
+
   testWidgets('renders worker AM_START report creation and retry affordance', (tester) async {
     await tester.pumpWidget(
       const HorenCheckApp(initialRoute: '/worker/today/report/event-1'),

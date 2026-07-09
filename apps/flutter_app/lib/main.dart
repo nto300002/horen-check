@@ -61,6 +61,15 @@ Route<void> _buildRoute(RouteSettings settings) {
   if (name == '/notification/settings') {
     return _pageRoute(settings, const NotificationSettingsPage());
   }
+  if (name == '/notification/mode-switch') {
+    return _pageRoute(settings, const ModeSwitchRequestPage());
+  }
+  if (name == '/notification/mode-switch/pending') {
+    return _pageRoute(settings, const ModeSwitchPendingPage());
+  }
+  if (name == '/notification/mode-switch/rejected') {
+    return _pageRoute(settings, const ModeSwitchRejectedPage());
+  }
   if (name == '/admin/users') {
     return _pageRoute(settings, const AdminUsersPage());
   }
@@ -79,6 +88,16 @@ Route<void> _buildRoute(RouteSettings settings) {
   }
   if (name == '/admin/audit-logs') {
     return _pageRoute(settings, const AdminAuditLogsPage());
+  }
+  if (name == '/admin/mode-switch-requests') {
+    return _pageRoute(settings, const AdminModeSwitchRequestsPage());
+  }
+  if (name.startsWith('/admin/mode-switch-requests/')) {
+    final requestId = name.split('/').last;
+    return _pageRoute(settings, ModeSwitchRequestDetailPage(
+      requestId: requestId,
+      actorRole: 'admin',
+    ));
   }
   if (name.startsWith('/admin/reports/')) {
     final reportId = name.split('/').last;
@@ -99,6 +118,16 @@ Route<void> _buildRoute(RouteSettings settings) {
   }
   if (name == '/supporter/workers') {
     return _pageRoute(settings, const SupporterWorkersPage());
+  }
+  if (name == '/supporter/mode-switch-requests') {
+    return _pageRoute(settings, const SupporterModeSwitchRequestsPage());
+  }
+  if (name.startsWith('/supporter/mode-switch-requests/')) {
+    final requestId = name.split('/').last;
+    return _pageRoute(settings, ModeSwitchRequestDetailPage(
+      requestId: requestId,
+      actorRole: 'supporter',
+    ));
   }
   if (name.startsWith('/supporter/workers/')) {
     final workerId = name.split('/').last;
@@ -264,6 +293,26 @@ class AuditLogItem {
   final String createdAt;
 }
 
+class ModeSwitchRequestItem {
+  const ModeSwitchRequestItem({
+    required this.id,
+    required this.workerName,
+    required this.supporterEmail,
+    required this.employmentContext,
+    required this.message,
+    required this.status,
+    required this.reviewComment,
+  });
+
+  final String id;
+  final String workerName;
+  final String supporterEmail;
+  final String employmentContext;
+  final String message;
+  final String status;
+  final String reviewComment;
+}
+
 const amPmSchedules = [
   NotificationSchedule(
     id: 'AM_START',
@@ -400,6 +449,27 @@ const auditLogs = [
     target: 'worker-1',
     reason: '担当者設定',
     createdAt: '2026/07/07 09:00',
+  ),
+];
+
+const modeSwitchRequests = [
+  ModeSwitchRequestItem(
+    id: 'switch-1',
+    workerName: 'Worker One',
+    supporterEmail: 'supporter@example.com',
+    employmentContext: 'supported_facility',
+    message: '報告支援を使いたいです',
+    status: 'pending',
+    reviewComment: '',
+  ),
+  ModeSwitchRequestItem(
+    id: 'switch-rejected',
+    workerName: 'Worker Two',
+    supporterEmail: 'supporter@example.com',
+    employmentContext: 'general_employment',
+    message: '一般就労先で報告を安定させたいです',
+    status: 'rejected',
+    reviewComment: '担当者確認後に再申請してください',
   ),
 ];
 
@@ -842,6 +912,130 @@ class NotificationSettingsPage extends StatelessWidget {
                 border: OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 12),
+            const _PrimaryNavigationButton(
+              label: '報告支援モードへ切り替え',
+              icon: Icons.sync_alt,
+              routeName: '/notification/mode-switch',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ModeSwitchRequestPage extends StatelessWidget {
+  const ModeSwitchRequestPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('報告支援モード切り替え申請'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '支援員メールアドレス',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: 'supported_facility',
+              items: const [
+                DropdownMenuItem(value: 'supported_facility', child: Text('supported_facility')),
+                DropdownMenuItem(value: 'general_employment', child: Text('general_employment')),
+              ],
+              onChanged: (_) {},
+              decoration: const InputDecoration(
+                labelText: '希望employmentContext',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: 'メッセージ',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              value: true,
+              onChanged: (_) {},
+              title: const Text('AM/PM通知を報告スケジュールへ移行'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/notification/mode-switch/pending'),
+              icon: const Icon(Icons.send),
+              label: const Text('申請する'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ModeSwitchPendingPage extends StatelessWidget {
+  const ModeSwitchPendingPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('切り替え申請中'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const _StatusTile(label: 'status', value: 'pending'),
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.lock_clock),
+                title: Text('pending申請中は新規申請できません'),
+              ),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/notification/mode-switch'),
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('申請を取り消して再申請'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ModeSwitchRejectedPage extends StatelessWidget {
+  const ModeSwitchRejectedPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final rejected = modeSwitchRequests.last;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('切り替え申請却下'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: 'reviewComment', value: rejected.reviewComment),
+            FilledButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/notification/mode-switch'),
+              icon: const Icon(Icons.refresh),
+              label: const Text('再申請する'),
+            ),
           ],
         ),
       ),
@@ -1268,6 +1462,11 @@ class SupporterHomePage extends StatelessWidget {
               icon: Icons.groups_outlined,
               routeName: '/supporter/workers',
             ),
+            _PrimaryNavigationButton(
+              label: 'モード切替申請',
+              icon: Icons.sync_alt,
+              routeName: '/supporter/mode-switch-requests',
+            ),
           ],
         ),
       ),
@@ -1384,6 +1583,151 @@ class SupporterReportDetailPage extends StatelessWidget {
               ),
               maxLines: 3,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SupporterModeSwitchRequestsPage extends StatelessWidget {
+  const SupporterModeSwitchRequestsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return _ModeSwitchRequestsScaffold(
+      title: 'モード切替申請一覧',
+      actorRole: 'supporter',
+      requests: modeSwitchRequests
+          .where((request) => request.supporterEmail == 'supporter@example.com')
+          .toList(),
+    );
+  }
+}
+
+class AdminModeSwitchRequestsPage extends StatelessWidget {
+  const AdminModeSwitchRequestsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ModeSwitchRequestsScaffold(
+      title: 'モード切替申請管理',
+      actorRole: 'admin',
+      requests: modeSwitchRequests,
+    );
+  }
+}
+
+class _ModeSwitchRequestsScaffold extends StatelessWidget {
+  const _ModeSwitchRequestsScaffold({
+    required this.title,
+    required this.actorRole,
+    required this.requests,
+  });
+
+  final String title;
+  final String actorRole;
+  final List<ModeSwitchRequestItem> requests;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            for (final request in requests)
+              Card(
+                child: ListTile(
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    '/$actorRole/mode-switch-requests/${request.id}',
+                  ),
+                  leading: const Icon(Icons.sync_alt),
+                  title: Text(request.workerName),
+                  subtitle: Text('${request.employmentContext} / ${request.status}'),
+                  trailing: const Icon(Icons.chevron_right),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ModeSwitchRequestDetailPage extends StatelessWidget {
+  const ModeSwitchRequestDetailPage({
+    super.key,
+    required this.requestId,
+    required this.actorRole,
+  });
+
+  final String requestId;
+  final String actorRole;
+
+  @override
+  Widget build(BuildContext context) {
+    final request = modeSwitchRequests.firstWhere(
+      (item) => item.id == requestId,
+      orElse: () => modeSwitchRequests.first,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('モード切替申請詳細'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: 'worker', value: request.workerName),
+            _StatusTile(label: 'supporterEmail', value: request.supporterEmail),
+            _StatusTile(label: 'employmentContext', value: request.employmentContext),
+            _StatusTile(label: 'message', value: request.message),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: 'managerId',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: 'supporterId',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: 'reviewComment',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              value: true,
+              onChanged: (_) {},
+              title: const Text('convert_am_pm'),
+            ),
+            FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('承認してworkerSettings/assignmentsを作成'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('却下する'),
+            ),
+            if (request.reviewComment.isNotEmpty)
+              _StatusTile(label: '却下理由', value: request.reviewComment),
           ],
         ),
       ),
@@ -1707,6 +2051,11 @@ class _AdminNavigationRow extends StatelessWidget {
           icon: const Icon(Icons.manage_search),
           label: const Text('監査ログ'),
         ),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.pushNamed(context, '/admin/mode-switch-requests'),
+          icon: const Icon(Icons.sync_alt),
+          label: const Text('モード切替申請'),
+        ),
       ],
     );
   }
@@ -1797,7 +2146,7 @@ class _ModeSwitchPanel extends StatelessWidget {
             const Text('支援員や上司と報告を共有したい場合は、報告支援モードへ切り替えできます。'),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: () => Navigator.pushNamed(context, '/notification/mode-switch'),
               icon: const Icon(Icons.sync_alt),
               label: const Text('報告支援モードへ切り替え'),
             ),
