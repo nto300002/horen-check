@@ -146,6 +146,8 @@ void main() {
 
     expect(find.text('managerホーム'), findsOneWidget);
     expect(find.text('当日報告'), findsOneWidget);
+    expect(find.text('4報告ステータス'), findsOneWidget);
+    expect(find.textContaining('AM_END pending'), findsOneWidget);
     expect(find.text('Worker One'), findsOneWidget);
     expect(find.textContaining('相談あり'), findsOneWidget);
     expect(find.textContaining('優先順位について相談があります'), findsNothing);
@@ -169,6 +171,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('worker詳細'), findsOneWidget);
     expect(find.text('過去90日分'), findsOneWidget);
+    expect(find.text('4報告ステータス'), findsOneWidget);
+    expect(find.textContaining('PM_END pending'), findsOneWidget);
     expect(find.textContaining('AM_START / 2026/07/07'), findsOneWidget);
 
     await tester.tap(find.textContaining('AM_START / 2026/07/07'));
@@ -289,6 +293,33 @@ void main() {
     expect(find.text('送信完了'), findsOneWidget);
     expect(find.text('reported'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, '再送'), findsOneWidget);
+  });
+
+  testWidgets('renders worker AM_END, PM_START, and PM_END report fields', (tester) async {
+    const cases = [
+      ('AM_END', '午前にできたこと', '午前は在庫確認まで完了しました。'),
+      ('PM_START', '午後にやること', '午後は商品登録に取り組みます。'),
+      ('PM_END', '今日できたこと', '本日は商品登録と在庫確認まで完了しました。'),
+    ];
+
+    for (final item in cases) {
+      await tester.pumpWidget(
+        HorenCheckApp(
+          key: UniqueKey(),
+          initialRoute: '/worker/today/report/event-${item.$1}',
+        ),
+      );
+
+      expect(find.text('${item.$1}報告'), findsOneWidget);
+      expect(find.text(item.$2), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('generatedReportText')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.textContaining(item.$3), findsOneWidget);
+    }
   });
 
   testWidgets('renders worker report history, detail, correction, and retry routes', (tester) async {

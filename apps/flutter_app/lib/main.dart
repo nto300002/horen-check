@@ -1364,6 +1364,11 @@ class ManagerHomePage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const _SectionTitle('当日報告'),
+            const _StatusTile(
+              label: '4報告ステータス',
+              value: 'AM_START reported / AM_END pending / PM_START pending / PM_END pending',
+            ),
+            const SizedBox(height: 12),
             for (final report in reviewReports)
               _ManagerReportListTile(report: report),
           ],
@@ -1529,6 +1534,10 @@ class SupporterWorkerDetailPage extends StatelessWidget {
           children: [
             _StatusTile(label: 'worker', value: worker.name),
             const _StatusTile(label: '表示範囲', value: '過去90日分'),
+            const _StatusTile(
+              label: '4報告ステータス',
+              value: 'AM_START reported / AM_END pending / PM_START pending / PM_END pending',
+            ),
             const SizedBox(height: 12),
             for (final report in reviewReports)
               Card(
@@ -1735,6 +1744,65 @@ class ModeSwitchRequestDetailPage extends StatelessWidget {
   }
 }
 
+const _reportTypes = ['AM_START', 'AM_END', 'PM_START', 'PM_END'];
+
+String _reportTypeFromEventId(String eventId) {
+  for (final type in _reportTypes) {
+    if (eventId.contains(type)) {
+      return type;
+    }
+  }
+  return 'AM_START';
+}
+
+String _primaryReportFieldLabel(String reportType) {
+  switch (reportType) {
+    case 'AM_END':
+      return '午前にできたこと';
+    case 'PM_START':
+      return '午後にやること';
+    case 'PM_END':
+      return '今日できたこと';
+    case 'AM_START':
+    default:
+      return '今日やること';
+  }
+}
+
+String _generatedReportPreview(String reportType) {
+  switch (reportType) {
+    case 'AM_END':
+      return '''
+お疲れさまです。
+午前の作業を終了します。
+午前は在庫確認まで完了しました。
+相談したいこと：午後の優先順位を相談したいです
+補足：10件完了しました''';
+    case 'PM_START':
+      return '''
+お疲れさまです。
+これから午後の作業を開始します。
+午後は商品登録に取り組みます。
+相談したいこと：確認方法を相談したいです
+補足：15時に共有します''';
+    case 'PM_END':
+      return '''
+お疲れさまです。
+本日の作業を終了します。
+本日は商品登録と在庫確認まで完了しました。
+相談したいこと：明日の進め方を相談したいです
+補足：残り2件です''';
+    case 'AM_START':
+    default:
+      return '''
+おはようございます。
+これから午前の作業を開始します。
+本日は在庫確認に取り組みます。
+相談したいこと：優先順位を相談したいです
+補足：午後に確認します''';
+  }
+}
+
 class WorkerTodayReportPage extends StatelessWidget {
   const WorkerTodayReportPage({
     super.key,
@@ -1745,16 +1813,12 @@ class WorkerTodayReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const generatedText = '''
-おはようございます。
-これから午前の作業を開始します。
-本日は在庫確認に取り組みます。
-相談したいこと：優先順位を相談したいです
-補足：午後に確認します''';
+    final reportType = _reportTypeFromEventId(eventId);
+    final generatedText = _generatedReportPreview(reportType);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AM_START報告'),
+        title: Text('$reportType報告'),
       ),
       body: SafeArea(
         child: ListView(
@@ -1762,10 +1826,10 @@ class WorkerTodayReportPage extends StatelessWidget {
           children: [
             _StatusTile(label: '対象イベント', value: eventId),
             const SizedBox(height: 12),
-            const TextField(
+            TextField(
               decoration: InputDecoration(
-                labelText: '今日やること',
-                border: OutlineInputBorder(),
+                labelText: _primaryReportFieldLabel(reportType),
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
@@ -1793,7 +1857,7 @@ class WorkerTodayReportPage extends StatelessWidget {
               maxLines: 6,
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               generatedText,
               key: Key('generatedReportText'),
             ),

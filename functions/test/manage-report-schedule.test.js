@@ -23,33 +23,33 @@ function baseSchedule(overrides = {}) {
   };
 }
 
-test("manager, supporter, or admin can configure a worker AM_START report schedule", () => {
+test("manager, supporter, or admin can configure AM/PM report schedules", () => {
   const now = new Date("2026-07-07T01:00:00.000Z");
-  const result = updateReportScheduleDocument({
-    id: "worker-1_AM_START",
-    workerId: "worker-1",
-    organizationId: "org-1",
-    actorId: "manager-1",
-    actorRole: "manager",
-    existingSchedule: undefined,
-    patch: {
-      type: "AM_START",
-      workStyle: "remote",
-      time: "09:15",
-      dayOfWeek: [1, 2, 3, 4, 5],
-      enabled: true
-    }
-  }, now);
+  const results = ["AM_START", "AM_END", "PM_START", "PM_END"].map((type, index) =>
+    updateReportScheduleDocument({
+      id: `worker-1_${type}`,
+      workerId: "worker-1",
+      organizationId: "org-1",
+      actorId: "manager-1",
+      actorRole: "manager",
+      existingSchedule: undefined,
+      patch: {
+        type,
+        workStyle: "remote",
+        time: `09:1${index}`,
+        dayOfWeek: [1, 2, 3, 4, 5],
+        enabled: true
+      }
+    }, now)
+  );
 
-  assert.equal(result.id, "worker-1_AM_START");
-  assert.equal(result.workerId, "worker-1");
-  assert.equal(result.type, "AM_START");
-  assert.equal(result.time, "09:15");
-  assert.deepEqual(result.dayOfWeek, [1, 2, 3, 4, 5]);
-  assert.equal(result.createdBy, "manager-1");
-  assert.equal(result.updatedBy, "manager-1");
-  assert.equal(result.createdAt, now);
-  assert.equal(result.updatedAt, now);
+  assert.deepEqual(results.map((result) => result.type), ["AM_START", "AM_END", "PM_START", "PM_END"]);
+  assert.equal(results[0].id, "worker-1_AM_START");
+  assert.equal(results[0].workerId, "worker-1");
+  assert.equal(results[0].createdBy, "manager-1");
+  assert.equal(results[0].updatedBy, "manager-1");
+  assert.equal(results[0].createdAt, now);
+  assert.equal(results[0].updatedAt, now);
 });
 
 test("updates an existing AM_START report schedule without changing ownership", () => {
@@ -77,7 +77,7 @@ test("updates an existing AM_START report schedule without changing ownership", 
   assert.equal(result.createdAt.toISOString(), "2026-07-07T00:00:00.000Z");
 });
 
-test("rejects worker role and non-AM_START schedule changes in the first slice", () => {
+test("rejects worker role for report schedule changes", () => {
   assert.throws(() => updateReportScheduleDocument({
     id: "worker-1_AM_START",
     workerId: "worker-1",
@@ -94,25 +94,6 @@ test("rejects worker role and non-AM_START schedule changes in the first slice",
   }), (error) => {
     assert.equal(error instanceof ReportScheduleError, true);
     assert.equal(error.code, "REPORT_SCHEDULE_ACTOR_NOT_ALLOWED");
-    return true;
-  });
-
-  assert.throws(() => updateReportScheduleDocument({
-    id: "worker-1_AM_END",
-    workerId: "worker-1",
-    organizationId: "org-1",
-    actorId: "admin-1",
-    actorRole: "admin",
-    existingSchedule: undefined,
-    patch: {
-      type: "AM_END",
-      time: "12:00",
-      dayOfWeek: [1],
-      workStyle: "remote"
-    }
-  }), (error) => {
-    assert.equal(error instanceof ReportScheduleError, true);
-    assert.equal(error.code, "REPORT_TYPE_NOT_SUPPORTED");
     return true;
   });
 });

@@ -173,6 +173,82 @@ test("generates AM_START report text when worker does not edit it", async () => 
   assert.match(result.report.editedText, /本日は日報作成に取り組みます。/);
 });
 
+test("generates AM_END, PM_START, and PM_END report text with required fields", async () => {
+  const cases = [
+    {
+      type: "AM_END",
+      input: { completedWork: "午前の在庫確認", consultation: "午後の優先順位を相談したいです", freeText: "10件完了" },
+      expected: /午前は午前の在庫確認まで完了しました。/,
+      requiredCode: "COMPLETEDWORK_REQUIRED"
+    },
+    {
+      type: "PM_START",
+      input: { afternoonPlan: "商品登録", consultation: "確認方法を相談したいです", freeText: "15時に共有します" },
+      expected: /午後は商品登録に取り組みます。/,
+      requiredCode: "AFTERNOONPLAN_REQUIRED"
+    },
+    {
+      type: "PM_END",
+      input: { completedWork: "商品登録と確認", consultation: "明日の進め方を相談したいです", freeText: "残り2件です" },
+      expected: /本日は商品登録と確認まで完了しました。/,
+      requiredCode: "COMPLETEDWORK_REQUIRED"
+    }
+  ];
+
+  for (const item of cases) {
+    const result = await submitReportDocuments({
+      reportId: `report-${item.type}`,
+      idempotencyKey: `idem-${item.type}`,
+      requestHash: `hash-${item.type}`,
+      workerId: "worker-1",
+      event: reportEvent({
+        id: `event-${item.type}`,
+        scheduleId: `worker-1_${item.type}`,
+        type: item.type
+      }),
+      workerSettings: workerSettings(),
+      assignment: assignment(),
+      existingReports: [],
+      existingIdempotencyKey: undefined,
+      recipientUsersById: {
+        "supporter-1": user("supporter-1", "supporter@example.com")
+      },
+      input: item.input,
+      deliverySender: async () => {}
+    }, new Date("2026-07-07T12:05:00.000Z"));
+
+    assert.equal(result.report.type, item.type);
+    assert.match(result.generatedText, item.expected);
+    assert.match(result.generatedText, /相談したいこと：/);
+    assert.match(result.generatedText, /補足：/);
+
+    await assert.rejects(() => submitReportDocuments({
+      reportId: `report-missing-${item.type}`,
+      idempotencyKey: `idem-missing-${item.type}`,
+      requestHash: `hash-missing-${item.type}`,
+      workerId: "worker-1",
+      event: reportEvent({
+        id: `event-missing-${item.type}`,
+        scheduleId: `worker-1_${item.type}`,
+        type: item.type
+      }),
+      workerSettings: workerSettings(),
+      assignment: assignment(),
+      existingReports: [],
+      existingIdempotencyKey: undefined,
+      recipientUsersById: {
+        "supporter-1": user("supporter-1", "supporter@example.com")
+      },
+      input: {},
+      deliverySender: async () => {}
+    }), (error) => {
+      assert.equal(error instanceof SubmitReportError, true);
+      assert.equal(error.code, item.requiredCode);
+      return true;
+    });
+  }
+});
+
 test("prevents duplicate submit by idempotencyKey, reportEvent status, and existing report", async () => {
   const baseInput = {
     reportId: "report-1",
