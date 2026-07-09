@@ -114,6 +114,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /employmentTransitionRequests/{requestId} {
+      allow read: if signedIn() && (resource.data.workerId == request.auth.uid || assignedToWorker(resource.data.workerId) || isAdmin());
+      allow write: if false;
+    }
+
+    match /employmentContextTransitions/{transitionId} {
+      allow read: if signedIn() && (resource.data.workerId == request.auth.uid || assignedToWorker(resource.data.workerId) || isAdmin());
+      allow write: if false;
+    }
+
     match /modeSwitchRequests/{requestId} {
       allow read: if signedIn() && (resource.data.userId == request.auth.uid || resource.data.requestedSupporterId == request.auth.uid || isAdmin());
       allow write: if false;

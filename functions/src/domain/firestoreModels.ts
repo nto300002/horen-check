@@ -11,6 +11,8 @@ export type DeliveryStatus = "pending" | "sent" | "failed";
 export type InvitationStatus = "pending" | "accepted" | "expired" | "cancelled";
 export type ConsultationThreadStatus = "open" | "closed";
 export type ModeSwitchStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type EmploymentTransitionRequestStatus = "pending" | "converted" | "cancelled";
+export type EmploymentContextTransitionStatus = "planned" | "active" | "completed" | "cancelled";
 export type ModeSwitchRequestMethod = "invite_link" | "supporter_email";
 export type ScheduleMigrationPolicy =
   | "none"
@@ -266,6 +268,49 @@ export interface ModeSwitchRequestDocument extends TimestampFields {
   reviewComment?: string;
 }
 
+export interface EmploymentTransitionRequestDocument extends TimestampFields {
+  id: string;
+  workerId: string;
+  organizationId: string;
+  requestedBy: string;
+  requestedToContext: EmploymentContext;
+  message?: string;
+  status: EmploymentTransitionRequestStatus;
+  convertedBy?: string;
+  convertedAt?: Date;
+  convertedTransitionId?: string;
+  cancelledBy?: string;
+  cancelledAt?: Date;
+  cancellationReason?: string;
+}
+
+export interface EmploymentContextTransitionDocument extends TimestampFields {
+  id: string;
+  workerId: string;
+  organizationId: string;
+  fromContext: EmploymentContext;
+  toContext: EmploymentContext;
+  status: EmploymentContextTransitionStatus;
+  transitionStartDate: Date;
+  transitionEndDate: Date;
+  keepSupporterNotified: boolean;
+  keepManagerNotified: boolean;
+  transitionRecipientPolicy: string;
+  oldManagerId?: string;
+  newManagerId?: string;
+  oldSupporterId?: string;
+  newSupporterId?: string;
+  createdBy: string;
+  approvedBy?: string;
+  reason: string;
+  completedBy?: string;
+  completedAt?: Date;
+  completionReason?: string;
+  cancelledBy?: string;
+  cancelledAt?: Date;
+  cancellationReason?: string;
+}
+
 export interface IdempotencyKeyDocument {
   id: string;
   organizationId: string;
@@ -297,6 +342,8 @@ export const collectionNames = [
   "reportReplies",
   "reportCorrections",
   "auditLogs",
+  "employmentTransitionRequests",
+  "employmentContextTransitions",
   "modeSwitchRequests",
   "idempotencyKeys"
 ] as const;

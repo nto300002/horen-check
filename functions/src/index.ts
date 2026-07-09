@@ -38,6 +38,8 @@ import {
 import {
   AssignmentDocument,
   AuditLogDocument,
+  EmploymentContextTransitionDocument,
+  EmploymentTransitionRequestDocument,
   IdempotencyKeyDocument,
   InvitationDocument,
   ModeSwitchRequestDocument,
@@ -101,6 +103,15 @@ import {
   getConsultationThreadDetail,
   listManagerConsultationThreads
 } from "./usecase/manageConsultationThread";
+import {
+  cancelEmploymentContextTransitionDocument,
+  completeEmploymentContextTransitionDocuments,
+  convertEmploymentTransitionRequestDocuments,
+  createEmploymentTransitionRequestDocument,
+  EmploymentTransitionError,
+  remindTransitionCompletionDocuments,
+  startEmploymentContextTransitionDocuments
+} from "./usecase/manageEmploymentTransition";
 
 if (getApps().length === 0) {
   initializeApp();
@@ -685,7 +696,20 @@ export const api = onRequest(async (request, response) => {
         throw new SubmitReportError("ASSIGNMENT_NOT_FOUND", "assignment was not found");
       }
       const assignment = normalizeAssignment(assignmentSnapshot.data() ?? {});
-      const recipientIds = [assignment.managerId, assignment.supporterId].filter(
+      const workerSettings = normalizeWorkerSettings(workerSettingsSnapshot.data() ?? {});
+      const transitionSnapshot = workerSettings.activeTransitionId === undefined
+        ? undefined
+        : await db.collection("employmentContextTransitions").doc(workerSettings.activeTransitionId).get();
+      const transition = transitionSnapshot?.exists
+        ? normalizeEmploymentContextTransition(transitionSnapshot.data() ?? {})
+        : undefined;
+      const transitionRecipientIds = transition === undefined ? [] : [
+        transition.oldManagerId,
+        transition.newManagerId,
+        transition.oldSupporterId,
+        transition.newSupporterId
+      ];
+      const recipientIds = [assignment.managerId, assignment.supporterId, ...transitionRecipientIds].filter(
         (id): id is string => id !== undefined
       );
       const recipientSnapshots = await Promise.all(
@@ -706,8 +730,9 @@ export const api = onRequest(async (request, response) => {
         requestHash: JSON.stringify(request.body ?? {}),
         workerId,
         event,
-        workerSettings: normalizeWorkerSettings(workerSettingsSnapshot.data() ?? {}),
+        workerSettings,
         assignment,
+        transition,
         existingReports: existingReportsSnapshot.docs.map((doc) => normalizeReport(doc.data())),
         existingIdempotencyKey: idempotencySnapshot.exists
           ? normalizeIdempotencyKey(idempotencySnapshot.data() ?? {})
@@ -1214,6 +1239,229 @@ export const api = onRequest(async (request, response) => {
       });
     } catch (error) {
       writeReportReviewError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/createEmploymentTransitionRequest") {
+    try {
+      const db = getFirestore();
+      const requestRef = db.collection("employmentTransitionRequests").doc(String(
+        request.body?.requestId ?? db.collection("employmentTransitionRequests").doc().id
+      ));
+      const transitionRequest = createEmploymentTransitionRequestDocument({
+        id: requestRef.id,
+        workerId: String(request.body?.workerId ?? ""),
+        organizationId: String(request.body?.organizationId ?? ""),
+        requestedToContext: String(request.body?.requestedToContext ?? "general_employment") as EmploymentContext,
+        message: request.body?.message === undefined ? undefined : String(request.body.message)
+      });
+      await requestRef.set(transitionRequest);
+
+      response.json({
+        status: "ok",
+        employmentTransitionRequest: transitionRequest
+      });
+    } catch (error) {
+      writeEmploymentTransitionError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/convertEmploymentTransitionRequest") {
+    try {
+      const db = getFirestore();
+      const requestId = String(request.body?.requestId ?? "");
+      const requestRef = db.collection("employmentTransitionRequests").doc(requestId);
+      const requestSnapshot = await requestRef.get();
+      if (!requestSnapshot.exists) {
+        throw new EmploymentTransitionError("EMPLOYMENT_TRANSITION_REQUEST_NOT_FOUND", "request was not found");
+      }
+      const transitionRequest = normalizeEmploymentTransitionRequest(requestSnapshot.data() ?? {});
+      const [assignmentSnapshot, workerSettingsSnapshot] = await Promise.all([
+        db.collection("assignments").doc(transitionRequest.workerId).get(),
+        db.collection("workerSettings").doc(transitionRequest.workerId).get()
+      ]);
+      if (!assignmentSnapshot.exists || !workerSettingsSnapshot.exists) {
+        throw new EmploymentTransitionError("EMPLOYMENT_TRANSITION_WORKER_CONTEXT_NOT_FOUND", "worker context was not found");
+      }
+      const transitionRef = db.collection("employmentContextTransitions").doc(String(
+        request.body?.transitionId ?? db.collection("employmentContextTransitions").doc().id
+      ));
+      const result = convertEmploymentTransitionRequestDocuments({
+        request: transitionRequest,
+        transitionId: transitionRef.id,
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole,
+        assignment: normalizeAssignment(assignmentSnapshot.data() ?? {}),
+        workerSettings: normalizeWorkerSettings(workerSettingsSnapshot.data() ?? {}),
+        transitionStartDate: new Date(String(request.body?.transitionStartDate ?? new Date().toISOString())),
+        transitionEndDate: new Date(String(request.body?.transitionEndDate ?? new Date().toISOString())),
+        transitionRecipientPolicy: String(request.body?.transitionRecipientPolicy ?? "manager_and_supporter"),
+        newManagerId: request.body?.newManagerId === undefined ? undefined : String(request.body.newManagerId),
+        newSupporterId: request.body?.newSupporterId === undefined ? undefined : String(request.body.newSupporterId),
+        reason: String(request.body?.reason ?? "")
+      });
+      const batch = db.batch();
+      batch.set(requestRef, result.request);
+      batch.set(transitionRef, result.transition);
+      batch.set(db.collection("auditLogs").doc(result.auditLog.id), result.auditLog);
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        employmentTransitionRequest: result.request,
+        employmentContextTransition: result.transition,
+        auditLog: result.auditLog
+      });
+    } catch (error) {
+      writeEmploymentTransitionError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/startEmploymentContextTransition") {
+    try {
+      const db = getFirestore();
+      const workerId = String(request.body?.workerId ?? "");
+      const [assignmentSnapshot, workerSettingsSnapshot] = await Promise.all([
+        db.collection("assignments").doc(workerId).get(),
+        db.collection("workerSettings").doc(workerId).get()
+      ]);
+      if (!assignmentSnapshot.exists || !workerSettingsSnapshot.exists) {
+        throw new EmploymentTransitionError("EMPLOYMENT_TRANSITION_WORKER_CONTEXT_NOT_FOUND", "worker context was not found");
+      }
+      const transitionRef = db.collection("employmentContextTransitions").doc(String(
+        request.body?.transitionId ?? db.collection("employmentContextTransitions").doc().id
+      ));
+      const result = startEmploymentContextTransitionDocuments({
+        transitionId: transitionRef.id,
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole,
+        workerId,
+        organizationId: String(request.body?.organizationId ?? ""),
+        fromContext: String(request.body?.fromContext ?? "supported_facility") as EmploymentContext,
+        toContext: String(request.body?.toContext ?? "general_employment") as EmploymentContext,
+        assignment: normalizeAssignment(assignmentSnapshot.data() ?? {}),
+        workerSettings: normalizeWorkerSettings(workerSettingsSnapshot.data() ?? {}),
+        transitionStartDate: new Date(String(request.body?.transitionStartDate ?? new Date().toISOString())),
+        transitionEndDate: new Date(String(request.body?.transitionEndDate ?? new Date().toISOString())),
+        transitionRecipientPolicy: String(request.body?.transitionRecipientPolicy ?? "manager_and_supporter"),
+        newManagerId: request.body?.newManagerId === undefined ? undefined : String(request.body.newManagerId),
+        newSupporterId: request.body?.newSupporterId === undefined ? undefined : String(request.body.newSupporterId),
+        reason: String(request.body?.reason ?? "")
+      });
+      const batch = db.batch();
+      batch.set(transitionRef, result.transition);
+      batch.set(db.collection("workerSettings").doc(workerId), result.workerSettings);
+      batch.set(db.collection("auditLogs").doc(result.auditLog.id), result.auditLog);
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        employmentContextTransition: result.transition,
+        workerSettings: result.workerSettings,
+        auditLog: result.auditLog
+      });
+    } catch (error) {
+      writeEmploymentTransitionError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/completeEmploymentContextTransition") {
+    try {
+      const db = getFirestore();
+      const transitionId = String(request.body?.transitionId ?? "");
+      const transitionRef = db.collection("employmentContextTransitions").doc(transitionId);
+      const transitionSnapshot = await transitionRef.get();
+      if (!transitionSnapshot.exists) {
+        throw new EmploymentTransitionError("EMPLOYMENT_TRANSITION_NOT_FOUND", "transition was not found");
+      }
+      const transition = normalizeEmploymentContextTransition(transitionSnapshot.data() ?? {});
+      const workerSettingsSnapshot = await db.collection("workerSettings").doc(transition.workerId).get();
+      if (!workerSettingsSnapshot.exists) {
+        throw new EmploymentTransitionError("WORKER_SETTINGS_NOT_FOUND", "worker settings were not found");
+      }
+      const result = completeEmploymentContextTransitionDocuments({
+        transition,
+        workerSettings: normalizeWorkerSettings(workerSettingsSnapshot.data() ?? {}),
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole,
+        completionReason: String(request.body?.completionReason ?? "")
+      });
+      const batch = db.batch();
+      batch.set(transitionRef, result.transition);
+      batch.set(db.collection("workerSettings").doc(transition.workerId), result.workerSettings);
+      batch.set(db.collection("auditLogs").doc(result.auditLog.id), result.auditLog);
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        employmentContextTransition: result.transition,
+        workerSettings: result.workerSettings,
+        auditLog: result.auditLog
+      });
+    } catch (error) {
+      writeEmploymentTransitionError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/cancelEmploymentContextTransition") {
+    try {
+      const db = getFirestore();
+      const transitionId = String(request.body?.transitionId ?? "");
+      const transitionRef = db.collection("employmentContextTransitions").doc(transitionId);
+      const transitionSnapshot = await transitionRef.get();
+      if (!transitionSnapshot.exists) {
+        throw new EmploymentTransitionError("EMPLOYMENT_TRANSITION_NOT_FOUND", "transition was not found");
+      }
+      const transition = cancelEmploymentContextTransitionDocument({
+        transition: normalizeEmploymentContextTransition(transitionSnapshot.data() ?? {}),
+        actorId: String(request.body?.actorId ?? ""),
+        actorRole: String(request.body?.actorRole ?? "") as UserRole,
+        cancellationReason: String(request.body?.cancellationReason ?? "")
+      });
+      await transitionRef.set(transition);
+
+      response.json({
+        status: "ok",
+        employmentContextTransition: transition
+      });
+    } catch (error) {
+      writeEmploymentTransitionError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/remindTransitionCompletion") {
+    try {
+      const db = getFirestore();
+      const transitionId = String(request.body?.transitionId ?? "");
+      const transitionSnapshot = await db.collection("employmentContextTransitions").doc(transitionId).get();
+      if (!transitionSnapshot.exists) {
+        throw new EmploymentTransitionError("EMPLOYMENT_TRANSITION_NOT_FOUND", "transition was not found");
+      }
+      const recipients = asStringArrayOrUndefined(request.body?.recipients) ?? [];
+      const result = remindTransitionCompletionDocuments({
+        transition: normalizeEmploymentContextTransition(transitionSnapshot.data() ?? {}),
+        recipients,
+        now: request.body?.now === undefined ? new Date() : new Date(String(request.body.now))
+      });
+      const batch = db.batch();
+      for (const log of result.notificationLogs) {
+        batch.set(db.collection("notificationLogs").doc(log.id), log);
+      }
+      await batch.commit();
+
+      response.json({
+        status: "ok",
+        employmentContextTransition: result.transition,
+        notificationLogs: result.notificationLogs
+      });
+    } catch (error) {
+      writeEmploymentTransitionError(response, error);
     }
     return;
   }
@@ -1773,6 +2021,25 @@ function writeConsultationThreadError(
   });
 }
 
+function writeEmploymentTransitionError(
+  response: Parameters<Parameters<typeof onRequest>[0]>[1],
+  error: unknown
+): void {
+  if (error instanceof EmploymentTransitionError) {
+    response.status(400).json({
+      error: "invalid_argument",
+      errorCode: error.code,
+      message: error.message
+    });
+    return;
+  }
+
+  response.status(400).json({
+    error: "invalid_argument",
+    message: error instanceof Error ? error.message : "Invalid request"
+  });
+}
+
 function writeModeSwitchError(
   response: Parameters<Parameters<typeof onRequest>[0]>[1],
   error: unknown
@@ -1839,7 +2106,11 @@ function normalizeRecipientTransition(value: unknown): RecipientTransition | und
   const data = value as FirebaseFirestore.DocumentData;
   return {
     id: String(data.id ?? ""),
-    status: String(data.status ?? "") as RecipientTransition["status"]
+    status: String(data.status ?? "") as RecipientTransition["status"],
+    oldManagerId: data.oldManagerId === undefined ? undefined : String(data.oldManagerId),
+    newManagerId: data.newManagerId === undefined ? undefined : String(data.newManagerId),
+    oldSupporterId: data.oldSupporterId === undefined ? undefined : String(data.oldSupporterId),
+    newSupporterId: data.newSupporterId === undefined ? undefined : String(data.newSupporterId)
   };
 }
 
@@ -1923,6 +2194,32 @@ function normalizeReportReply(data: FirebaseFirestore.DocumentData): ReportReply
     ...data,
     createdAt: asDate(data.createdAt)
   } as ReportReplyDocument;
+}
+
+function normalizeEmploymentTransitionRequest(
+  data: FirebaseFirestore.DocumentData
+): EmploymentTransitionRequestDocument {
+  return {
+    ...data,
+    convertedAt: data.convertedAt === undefined ? undefined : asDate(data.convertedAt),
+    cancelledAt: data.cancelledAt === undefined ? undefined : asDate(data.cancelledAt),
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as EmploymentTransitionRequestDocument;
+}
+
+function normalizeEmploymentContextTransition(
+  data: FirebaseFirestore.DocumentData
+): EmploymentContextTransitionDocument {
+  return {
+    ...data,
+    transitionStartDate: asDate(data.transitionStartDate),
+    transitionEndDate: asDate(data.transitionEndDate),
+    completedAt: data.completedAt === undefined ? undefined : asDate(data.completedAt),
+    cancelledAt: data.cancelledAt === undefined ? undefined : asDate(data.cancelledAt),
+    createdAt: asDate(data.createdAt),
+    updatedAt: asDate(data.updatedAt)
+  } as EmploymentContextTransitionDocument;
 }
 
 function normalizeReportDelivery(data: FirebaseFirestore.DocumentData): ReportDeliveryDocument {

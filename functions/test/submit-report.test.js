@@ -175,6 +175,53 @@ test("generates AM_START report text when worker does not edit it", async () => 
   assert.match(result.report.editedText, /本日は日報作成に取り組みます。/);
 });
 
+test("submitReport applies active employment transition recipient policy", async () => {
+  const result = await submitReportDocuments({
+    reportId: "report-transition",
+    idempotencyKey: "idem-transition",
+    requestHash: "hash-transition",
+    workerId: "worker-1",
+    event: reportEvent({
+      employmentContext: "general_employment"
+    }),
+    workerSettings: workerSettings({
+      activeTransitionId: "transition-1",
+      transitionRecipientPolicy: "manager_and_supporter"
+    }),
+    assignment: assignment({
+      managerId: "old-manager-1",
+      supporterId: "old-supporter-1"
+    }),
+    transition: {
+      id: "transition-1",
+      status: "active",
+      oldManagerId: "old-manager-1",
+      newManagerId: "new-manager-1",
+      oldSupporterId: "old-supporter-1",
+      newSupporterId: "new-supporter-1"
+    },
+    existingReports: [],
+    existingIdempotencyKey: undefined,
+    recipientUsersById: {
+      "old-manager-1": user("manager-old", "old-manager@example.com"),
+      "new-manager-1": user("manager-new", "new-manager@example.com"),
+      "old-supporter-1": user("supporter-old", "old-supporter@example.com"),
+      "new-supporter-1": user("supporter-new", "new-supporter@example.com")
+    },
+    input: {
+      todayPlan: "移行先の報告確認"
+    },
+    deliverySender: async () => {}
+  }, new Date("2026-07-07T09:05:00.000Z"));
+
+  assert.deepEqual(result.report.selectedRecipients, [
+    "old-manager-1",
+    "new-manager-1",
+    "old-supporter-1",
+    "new-supporter-1"
+  ]);
+});
+
 test("generates AM_END, PM_START, and PM_END report text with required fields", async () => {
   const cases = [
     {

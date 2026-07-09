@@ -92,7 +92,7 @@ test("general_employment includes supporter when notifySupporterInGeneralEmploym
   assert.deepEqual(result.initialRecipients, ["manager-1", "supporter-1"]);
 });
 
-test("active transition applies transitionRecipientPolicy", () => {
+test("active transition applies transitionRecipientPolicy with old and new staff", () => {
   const result = resolveRecipients({
     workerSettings: workerSettings({
       activeTransitionId: "transition-1",
@@ -102,12 +102,26 @@ test("active transition applies transitionRecipientPolicy", () => {
     employmentContext: "general_employment",
     transition: {
       id: "transition-1",
-      status: "active"
+      status: "active",
+      oldManagerId: "old-manager-1",
+      newManagerId: "new-manager-1",
+      oldSupporterId: "old-supporter-1",
+      newSupporterId: "new-supporter-1"
     }
   });
 
-  assert.deepEqual(result.initialRecipients, ["manager-1", "supporter-1"]);
-  assert.deepEqual(result.requiredRecipients, ["manager-1", "supporter-1"]);
+  assert.deepEqual(result.initialRecipients, [
+    "old-manager-1",
+    "new-manager-1",
+    "old-supporter-1",
+    "new-supporter-1"
+  ]);
+  assert.deepEqual(result.requiredRecipients, [
+    "old-manager-1",
+    "new-manager-1",
+    "old-supporter-1",
+    "new-supporter-1"
+  ]);
 });
 
 test("worker can add and exclude recipients within allowed range", () => {
