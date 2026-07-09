@@ -3,6 +3,7 @@ import {
   NotificationLogDocument,
   NotificationSettingsDocument,
   ReportEventDocument,
+  ReportType,
   ReportScheduleDocument,
   WorkerSettingsDocument
 } from "../domain/firestoreModels";
@@ -34,6 +35,13 @@ export interface SendDueReportRemindersResult {
   logs: NotificationLogDocument[];
 }
 
+const REPORT_REMINDER_TITLES: Record<ReportType, string> = {
+  AM_START: "AM開始報告の時間です",
+  AM_END: "AM終了報告の時間です",
+  PM_START: "PM開始報告の時間です",
+  PM_END: "PM終了報告の時間です"
+};
+
 function buildDueAt(targetDate: Date, time: string): Date {
   const [hour, minute] = time.split(":").map(Number);
   return new Date(Date.UTC(
@@ -49,7 +57,6 @@ function buildDueAt(targetDate: Date, time: string): Date {
 
 function shouldGenerate(schedule: ReportScheduleDocument, targetDate: Date): boolean {
   return schedule.enabled
-    && schedule.type === "AM_START"
     && schedule.dayOfWeek.includes(targetDate.getUTCDay());
 }
 
@@ -133,7 +140,7 @@ function createLog(input: {
 function safeReportReminderMessage(event: ReportEventDocument, token: string): ReportReminderMessage {
   return {
     event,
-    title: "AM開始報告の時間です",
+    title: REPORT_REMINDER_TITLES[event.type],
     body: "報告時間になりました",
     token,
     clickUrl: `/worker/today/report/${event.id}`

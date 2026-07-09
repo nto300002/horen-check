@@ -11,6 +11,8 @@ export type ReportScheduleErrorCode =
   | "REPORT_SCHEDULE_ACTOR_NOT_ALLOWED"
   | "REPORT_TYPE_NOT_SUPPORTED";
 
+const REPORT_TYPES: readonly ReportType[] = ["AM_START", "AM_END", "PM_START", "PM_END"];
+
 export class ReportScheduleError extends Error {
   constructor(readonly code: ReportScheduleErrorCode, message: string) {
     super(message);
@@ -48,11 +50,11 @@ function assertReportSupportActor(actorRole: UserRole): void {
   }
 }
 
-function assertAmStart(type: ReportType): ReportType {
-  if (type !== "AM_START") {
+function assertReportType(type: ReportType): ReportType {
+  if (!REPORT_TYPES.includes(type)) {
     throw new ReportScheduleError(
       "REPORT_TYPE_NOT_SUPPORTED",
-      "only AM_START report schedules are supported in this phase"
+      "report type is not supported"
     );
   }
   return type;
@@ -90,7 +92,7 @@ export function updateReportScheduleDocument(
 ): ReportScheduleDocument {
   assertReportSupportActor(input.actorRole);
 
-  const type = assertAmStart((input.patch.type ?? input.existingSchedule?.type ?? "AM_START") as ReportType);
+  const type = assertReportType((input.patch.type ?? input.existingSchedule?.type ?? "AM_START") as ReportType);
   const existing = input.existingSchedule;
 
   if (existing === undefined) {

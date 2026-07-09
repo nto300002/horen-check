@@ -5,6 +5,7 @@ import {
   ReportDeliveryDocument,
   ReportDocument,
   ReportEventDocument,
+  ReportType,
   UserDocument,
   WorkerSettingsDocument
 } from "../domain/firestoreModels";
@@ -21,7 +22,9 @@ export class SubmitReportError extends Error {
 }
 
 export interface SubmitReportBodyInput {
-  todayPlan: string;
+  todayPlan?: string;
+  completedWork?: string;
+  afternoonPlan?: string;
   consultation?: string;
   freeText?: string;
   editedText?: string;
@@ -67,13 +70,7 @@ function requireNonEmpty(value: string | undefined, fieldName: string): string {
   return normalized;
 }
 
-function generateAmStartText(input: SubmitReportBodyInput): string {
-  const todayPlan = requireNonEmpty(input.todayPlan, "todayPlan");
-  const lines = [
-    "おはようございます。",
-    "これから午前の作業を開始します。",
-    `本日は${todayPlan}に取り組みます。`
-  ];
+function appendCommonLines(lines: string[], input: SubmitReportBodyInput): string[] {
   const consultation = input.consultation?.trim();
   const freeText = input.freeText?.trim();
   if (consultation !== undefined && consultation.length > 0) {
@@ -82,15 +79,48 @@ function generateAmStartText(input: SubmitReportBodyInput): string {
   if (freeText !== undefined && freeText.length > 0) {
     lines.push(`補足：${freeText}`);
   }
-  return lines.join("\n");
+  return lines;
+}
+
+function generateReportText(type: ReportType, input: SubmitReportBodyInput): string {
+  if (type === "AM_START") {
+    const todayPlan = requireNonEmpty(input.todayPlan, "todayPlan");
+    return appendCommonLines([
+      "おはようございます。",
+      "これから午前の作業を開始します。",
+      `本日は${todayPlan}に取り組みます。`
+    ], input).join("\n");
+  }
+
+  if (type === "AM_END") {
+    const completedWork = requireNonEmpty(input.completedWork, "completedWork");
+    return appendCommonLines([
+      "お疲れさまです。",
+      "午前の作業を終了します。",
+      `午前は${completedWork}まで完了しました。`
+    ], input).join("\n");
+  }
+
+  if (type === "PM_START") {
+    const afternoonPlan = requireNonEmpty(input.afternoonPlan, "afternoonPlan");
+    return appendCommonLines([
+      "お疲れさまです。",
+      "これから午後の作業を開始します。",
+      `午後は${afternoonPlan}に取り組みます。`
+    ], input).join("\n");
+  }
+
+  const completedWork = requireNonEmpty(input.completedWork, "completedWork");
+  return appendCommonLines([
+    "お疲れさまです。",
+    "本日の作業を終了します。",
+    `本日は${completedWork}まで完了しました。`
+  ], input).join("\n");
 }
 
 function assertSubmittable(input: SubmitReportInput): void {
   if (input.event.workerId !== input.workerId) {
     throw new SubmitReportError("REPORT_EVENT_WORKER_MISMATCH", "report event worker does not match");
-  }
-  if (input.event.type !== "AM_START") {
-    throw new SubmitReportError("REPORT_TYPE_NOT_SUPPORTED", "only AM_START submitReport is supported");
   }
   if (input.event.status === "reported" || input.event.status === "cancelled") {
     throw new SubmitReportError("REPORT_ALREADY_SUBMITTED", "report was already submitted");
@@ -195,7 +225,7 @@ export async function submitReportDocuments(
   }
 
   assertSubmittable(input);
-  const generatedText = generateAmStartText(input.input);
+  const generatedText = generateReportText(input.event.type, input.input);
   const editedText = input.input.editedText?.trim() || generatedText;
   const recipients = resolveRecipients({
     workerSettings: input.workerSettings,
