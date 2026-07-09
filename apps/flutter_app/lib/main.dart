@@ -1859,7 +1859,7 @@ class WorkerTodayReportPage extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               generatedText,
-              key: Key('generatedReportText'),
+              key: const Key('generatedReportText'),
             ),
             const SizedBox(height: 20),
             const _SectionTitle('送信先確認'),
