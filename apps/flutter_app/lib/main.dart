@@ -64,6 +64,10 @@ Route<void> _buildRoute(RouteSettings settings) {
   if (name == '/admin/users') {
     return _pageRoute(settings, const AdminUsersPage());
   }
+  if (name.startsWith('/admin/users/')) {
+    final userId = name.split('/').last;
+    return _pageRoute(settings, AdminUserDetailPage(userId: userId));
+  }
   if (name == '/admin/invitations') {
     return _pageRoute(settings, const AdminInvitationsPage());
   }
@@ -72,6 +76,37 @@ Route<void> _buildRoute(RouteSettings settings) {
   }
   if (name == '/admin/assignments') {
     return _pageRoute(settings, const AdminAssignmentsPage());
+  }
+  if (name == '/admin/audit-logs') {
+    return _pageRoute(settings, const AdminAuditLogsPage());
+  }
+  if (name.startsWith('/admin/reports/')) {
+    final reportId = name.split('/').last;
+    return _pageRoute(settings, AdminReportBodyPage(reportId: reportId));
+  }
+  if (name == '/manager/home') {
+    return _pageRoute(settings, const ManagerHomePage());
+  }
+  if (name == '/manager/workers') {
+    return _pageRoute(settings, const ManagerWorkersPage());
+  }
+  if (name.startsWith('/manager/reports/')) {
+    final reportId = name.split('/').last;
+    return _pageRoute(settings, ManagerReportDetailPage(reportId: reportId));
+  }
+  if (name == '/supporter/home') {
+    return _pageRoute(settings, const SupporterHomePage());
+  }
+  if (name == '/supporter/workers') {
+    return _pageRoute(settings, const SupporterWorkersPage());
+  }
+  if (name.startsWith('/supporter/workers/')) {
+    final workerId = name.split('/').last;
+    return _pageRoute(settings, SupporterWorkerDetailPage(workerId: workerId));
+  }
+  if (name.startsWith('/supporter/reports/')) {
+    final reportId = name.split('/').last;
+    return _pageRoute(settings, SupporterReportDetailPage(reportId: reportId));
   }
   if (name == '/worker/reports') {
     return _pageRoute(settings, const WorkerReportsPage());
@@ -137,12 +172,14 @@ class NotificationLogItem {
 
 class AdminUserItem {
   const AdminUserItem({
+    required this.id,
     required this.name,
     required this.email,
     required this.role,
     required this.active,
   });
 
+  final String id;
   final String name;
   final String email;
   final String role;
@@ -175,6 +212,56 @@ class AdminAssignmentItem {
   final String manager;
   final String supporter;
   final bool active;
+}
+
+class ReviewReportItem {
+  const ReviewReportItem({
+    required this.id,
+    required this.workerId,
+    required this.workerName,
+    required this.type,
+    required this.submittedAt,
+    required this.status,
+    required this.body,
+    required this.hasConsultation,
+  });
+
+  final String id;
+  final String workerId;
+  final String workerName;
+  final String type;
+  final String submittedAt;
+  final String status;
+  final String body;
+  final bool hasConsultation;
+}
+
+class SupporterWorkerItem {
+  const SupporterWorkerItem({
+    required this.id,
+    required this.name,
+    required this.lastReportAt,
+  });
+
+  final String id;
+  final String name;
+  final String lastReportAt;
+}
+
+class AuditLogItem {
+  const AuditLogItem({
+    required this.action,
+    required this.actor,
+    required this.target,
+    required this.reason,
+    required this.createdAt,
+  });
+
+  final String action;
+  final String actor;
+  final String target;
+  final String reason;
+  final String createdAt;
 }
 
 const amPmSchedules = [
@@ -238,18 +325,21 @@ const notificationLogs = [
 
 const adminUsers = [
   AdminUserItem(
+    id: 'worker-1',
     name: 'Worker One',
     email: 'worker@example.com',
     role: 'worker',
     active: true,
   ),
   AdminUserItem(
+    id: 'manager-1',
     name: 'Manager One',
     email: 'manager@example.com',
     role: 'manager',
     active: true,
   ),
   AdminUserItem(
+    id: 'supporter-1',
     name: 'Supporter One',
     email: 'supporter@example.com',
     role: 'supporter',
@@ -272,6 +362,44 @@ const adminAssignments = [
     manager: 'Manager One',
     supporter: 'Supporter One',
     active: true,
+  ),
+];
+
+const reviewReports = [
+  ReviewReportItem(
+    id: 'report-1',
+    workerId: 'worker-1',
+    workerName: 'Worker One',
+    type: 'AM_START',
+    submittedAt: '2026/07/07 09:05',
+    status: 'consultation',
+    body: 'おはようございます。午前は在庫確認を進めます。優先順位について相談があります。',
+    hasConsultation: true,
+  ),
+];
+
+const supporterWorkers = [
+  SupporterWorkerItem(
+    id: 'worker-1',
+    name: 'Worker One',
+    lastReportAt: '2026/07/07 09:05',
+  ),
+];
+
+const auditLogs = [
+  AuditLogItem(
+    action: 'report_viewed',
+    actor: 'admin-1',
+    target: 'report-1',
+    reason: '支援記録確認',
+    createdAt: '2026/07/07 10:00',
+  ),
+  AuditLogItem(
+    action: 'assign_user',
+    actor: 'admin-1',
+    target: 'worker-1',
+    reason: '担当者設定',
+    createdAt: '2026/07/07 09:00',
   ),
 ];
 
@@ -745,12 +873,50 @@ class AdminUsersPage extends StatelessWidget {
             for (final user in adminUsers)
               Card(
                 child: ListTile(
+                  onTap: () => Navigator.pushNamed(context, '/admin/users/${user.id}'),
                   leading: Icon(user.active ? Icons.check_circle_outline : Icons.pause_circle_outline),
                   title: Text(user.name),
-                  subtitle: Text('${user.email} / ${user.role}'),
-                  trailing: Text(user.active ? '有効' : '停止中'),
+                  subtitle: Text('${user.email} / ${user.role} / ${user.active ? '有効' : '停止中'}'),
+                  trailing: const Icon(Icons.chevron_right),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminUserDetailPage extends StatelessWidget {
+  const AdminUserDetailPage({
+    super.key,
+    required this.userId,
+  });
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = adminUsers.firstWhere(
+      (item) => item.id == userId,
+      orElse: () => adminUsers.first,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('ユーザー詳細'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: 'userId', value: user.id),
+            _StatusTile(label: 'name', value: user.name),
+            _StatusTile(label: 'email', value: user.email),
+            _StatusTile(label: 'role', value: user.role),
+            _StatusTile(label: 'active', value: user.active ? 'true' : 'false'),
+            const SizedBox(height: 12),
+            const _AdminNavigationRow(),
           ],
         ),
       ),
@@ -896,6 +1062,327 @@ class AdminAssignmentsPage extends StatelessWidget {
                 leading: Icon(Icons.info_outline),
                 title: Text('担当解除時は物理削除せず active=false として保存します'),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminAuditLogsPage extends StatelessWidget {
+  const AdminAuditLogsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('監査ログ'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const _AdminNavigationRow(),
+            const SizedBox(height: 12),
+            for (final log in auditLogs)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.manage_search),
+                  title: Text(log.action),
+                  subtitle: Text('${log.actor} / ${log.target}\n${log.reason}'),
+                  trailing: Text(log.createdAt),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AdminReportBodyPage extends StatelessWidget {
+  const AdminReportBodyPage({
+    super.key,
+    required this.reportId,
+  });
+
+  final String reportId;
+
+  @override
+  Widget build(BuildContext context) {
+    final report = reviewReports.firstWhere(
+      (item) => item.id == reportId,
+      orElse: () => reviewReports.first,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('報告本文閲覧'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: 'reportId', value: report.id),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '閲覧理由',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.visibility),
+              label: const Text('理由を記録して本文を閲覧'),
+            ),
+            const SizedBox(height: 20),
+            const _SectionTitle('報告本文'),
+            Text(report.body),
+            const SizedBox(height: 12),
+            const _StatusTile(label: 'auditLogs.action', value: 'report_viewed'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ManagerHomePage extends StatelessWidget {
+  const ManagerHomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('managerホーム'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            const _PrimaryNavigationButton(
+              label: '担当worker当日一覧',
+              icon: Icons.today,
+              routeName: '/manager/workers',
+            ),
+            const SizedBox(height: 12),
+            const _SectionTitle('当日報告'),
+            for (final report in reviewReports)
+              _ManagerReportListTile(report: report),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ManagerWorkersPage extends StatelessWidget {
+  const ManagerWorkersPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('担当worker当日一覧'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            for (final report in reviewReports)
+              _ManagerReportListTile(report: report),
+            const Card(
+              child: ListTile(
+                leading: Icon(Icons.lock_outline),
+                title: Text('一覧では報告本文を表示しません'),
+                subtitle: Text('本文確認は報告詳細で権限確認後に表示します'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ManagerReportDetailPage extends StatelessWidget {
+  const ManagerReportDetailPage({
+    super.key,
+    required this.reportId,
+  });
+
+  final String reportId;
+
+  @override
+  Widget build(BuildContext context) {
+    final report = reviewReports.firstWhere(
+      (item) => item.id == reportId,
+      orElse: () => reviewReports.first,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('当日報告詳細'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: 'worker', value: report.workerName),
+            _StatusTile(label: 'type', value: report.type),
+            _StatusTile(label: 'reportStatus', value: report.status),
+            const SizedBox(height: 12),
+            const _SectionTitle('報告本文'),
+            Text(report.body),
+            const SizedBox(height: 20),
+            OutlinedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.forum_outlined),
+              label: const Text('相談返信'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SupporterHomePage extends StatelessWidget {
+  const SupporterHomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('supporterホーム'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: const [
+            _PrimaryNavigationButton(
+              label: '担当worker一覧',
+              icon: Icons.groups_outlined,
+              routeName: '/supporter/workers',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SupporterWorkersPage extends StatelessWidget {
+  const SupporterWorkersPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('担当worker一覧'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            for (final worker in supporterWorkers)
+              Card(
+                child: ListTile(
+                  onTap: () => Navigator.pushNamed(context, '/supporter/workers/${worker.id}'),
+                  leading: const Icon(Icons.person_search),
+                  title: Text(worker.name),
+                  subtitle: Text('最終報告: ${worker.lastReportAt}'),
+                  trailing: const Icon(Icons.chevron_right),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SupporterWorkerDetailPage extends StatelessWidget {
+  const SupporterWorkerDetailPage({
+    super.key,
+    required this.workerId,
+  });
+
+  final String workerId;
+
+  @override
+  Widget build(BuildContext context) {
+    final worker = supporterWorkers.firstWhere(
+      (item) => item.id == workerId,
+      orElse: () => supporterWorkers.first,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('worker詳細'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: 'worker', value: worker.name),
+            const _StatusTile(label: '表示範囲', value: '過去90日分'),
+            const SizedBox(height: 12),
+            for (final report in reviewReports)
+              Card(
+                child: ListTile(
+                  onTap: () => Navigator.pushNamed(context, '/supporter/reports/${report.id}'),
+                  leading: const Icon(Icons.description_outlined),
+                  title: Text('${report.type} / ${report.submittedAt}'),
+                  subtitle: Text(report.status),
+                  trailing: const Icon(Icons.chevron_right),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class SupporterReportDetailPage extends StatelessWidget {
+  const SupporterReportDetailPage({
+    super.key,
+    required this.reportId,
+  });
+
+  final String reportId;
+
+  @override
+  Widget build(BuildContext context) {
+    final report = reviewReports.firstWhere(
+      (item) => item.id == reportId,
+      orElse: () => reviewReports.first,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('報告詳細・相談返信'),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _StatusTile(label: 'worker', value: report.workerName),
+            _StatusTile(label: 'submittedAt', value: report.submittedAt),
+            const SizedBox(height: 12),
+            const _SectionTitle('報告本文'),
+            Text(report.body),
+            const SizedBox(height: 20),
+            const TextField(
+              decoration: InputDecoration(
+                labelText: '相談返信',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
             ),
           ],
         ),
@@ -1164,6 +1651,28 @@ class _NotificationCard extends StatelessWidget {
   }
 }
 
+class _ManagerReportListTile extends StatelessWidget {
+  const _ManagerReportListTile({
+    required this.report,
+  });
+
+  final ReviewReportItem report;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        onTap: () => Navigator.pushNamed(context, '/manager/reports/${report.id}'),
+        leading: Icon(report.hasConsultation ? Icons.forum_outlined : Icons.description_outlined),
+        title: Text(report.workerName),
+        subtitle: Text('${report.type} / ${report.submittedAt} / ${report.status}'
+            '${report.hasConsultation ? ' / 相談あり' : ''}'),
+        trailing: const Icon(Icons.chevron_right),
+      ),
+    );
+  }
+}
+
 class _AdminNavigationRow extends StatelessWidget {
   const _AdminNavigationRow();
 
@@ -1192,6 +1701,11 @@ class _AdminNavigationRow extends StatelessWidget {
           onPressed: () => Navigator.pushNamed(context, '/admin/assignments'),
           icon: const Icon(Icons.account_tree_outlined),
           label: const Text('担当者紐づけ'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.pushNamed(context, '/admin/audit-logs'),
+          icon: const Icon(Icons.manage_search),
+          label: const Text('監査ログ'),
         ),
       ],
     );

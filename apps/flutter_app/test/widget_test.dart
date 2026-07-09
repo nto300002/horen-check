@@ -110,7 +110,16 @@ void main() {
     expect(find.text('ユーザー管理'), findsWidgets);
     expect(find.text('ユーザーを招待'), findsOneWidget);
     expect(find.text('Worker One'), findsOneWidget);
-    expect(find.text('停止中'), findsOneWidget);
+    expect(find.textContaining('停止中'), findsOneWidget);
+
+    await tester.tap(find.text('Worker One'));
+    await tester.pumpAndSettle();
+    expect(find.text('ユーザー詳細'), findsOneWidget);
+    expect(find.text('worker-1'), findsOneWidget);
+    expect(find.text('worker@example.com'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('ユーザーを招待'));
     await tester.pumpAndSettle();
@@ -130,6 +139,62 @@ void main() {
     expect(find.textContaining('manager: Manager One'), findsOneWidget);
     expect(find.text('担当解除'), findsOneWidget);
     expect(find.textContaining('active=false'), findsOneWidget);
+  });
+
+  testWidgets('renders manager report review without body in list and body in detail', (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/manager/home'));
+
+    expect(find.text('managerホーム'), findsOneWidget);
+    expect(find.text('当日報告'), findsOneWidget);
+    expect(find.text('Worker One'), findsOneWidget);
+    expect(find.textContaining('相談あり'), findsOneWidget);
+    expect(find.textContaining('優先順位について相談があります'), findsNothing);
+
+    await tester.tap(find.text('Worker One'));
+    await tester.pumpAndSettle();
+    expect(find.text('当日報告詳細'), findsOneWidget);
+    expect(find.text('報告本文'), findsOneWidget);
+    expect(find.textContaining('優先順位について相談があります'), findsOneWidget);
+    expect(find.text('相談返信'), findsOneWidget);
+  });
+
+  testWidgets('renders supporter worker list and last 90 days report body', (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/supporter/workers'));
+
+    expect(find.text('担当worker一覧'), findsOneWidget);
+    expect(find.text('Worker One'), findsOneWidget);
+    expect(find.textContaining('最終報告: 2026/07/07'), findsOneWidget);
+
+    await tester.tap(find.text('Worker One'));
+    await tester.pumpAndSettle();
+    expect(find.text('worker詳細'), findsOneWidget);
+    expect(find.text('過去90日分'), findsOneWidget);
+    expect(find.textContaining('AM_START / 2026/07/07'), findsOneWidget);
+
+    await tester.tap(find.textContaining('AM_START / 2026/07/07'));
+    await tester.pumpAndSettle();
+    expect(find.text('報告詳細・相談返信'), findsOneWidget);
+    expect(find.textContaining('優先順位について相談があります'), findsOneWidget);
+    expect(find.text('相談返信'), findsOneWidget);
+  });
+
+  testWidgets('renders admin audit logs and reason-gated report body view', (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/admin/audit-logs'));
+
+    expect(find.text('監査ログ'), findsWidgets);
+    expect(find.text('report_viewed'), findsOneWidget);
+    expect(find.textContaining('支援記録確認'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/admin/reports/report-1',
+    ));
+    expect(find.text('報告本文閲覧'), findsOneWidget);
+    expect(find.text('閲覧理由'), findsOneWidget);
+    expect(find.text('理由を記録して本文を閲覧'), findsOneWidget);
+    expect(find.textContaining('優先順位について相談があります'), findsOneWidget);
+    expect(find.text('auditLogs.action'), findsOneWidget);
+    expect(find.text('report_viewed'), findsOneWidget);
   });
 
   testWidgets('renders worker AM_START report creation and retry affordance', (tester) async {

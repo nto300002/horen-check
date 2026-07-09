@@ -11,6 +11,16 @@ import {
   inviteUserDocuments,
   updateUserRoleDocuments
 } from "./usecase/adminUserManagement";
+import {
+  getAdminReportDetail,
+  getManagerReportDetail,
+  getSupporterWorkerReport,
+  listAdminUsers,
+  listAuditLogs,
+  listManagerTodayReports,
+  listSupporterWorkers,
+  ReportReviewError
+} from "./usecase/manageReportReview";
 import { createNotificationUserProfileDocuments } from "./usecase/createNotificationUserProfile";
 import {
   createNotificationScheduleDocument,
@@ -20,6 +30,7 @@ import {
 } from "./usecase/manageNotificationSchedule";
 import {
   AssignmentDocument,
+  AuditLogDocument,
   IdempotencyKeyDocument,
   InvitationDocument,
   NotificationEventDocument,
@@ -825,6 +836,194 @@ export const api = onRequest(async (request, response) => {
     return;
   }
 
+  if (request.method === "GET" && request.path === "/listManagerTodayReports") {
+    try {
+      const db = getFirestore();
+      const managerId = String(request.query.managerId ?? "");
+      const targetDate = request.query.targetDate === undefined
+        ? new Date()
+        : new Date(String(request.query.targetDate));
+      const [assignmentsSnapshot, reportsSnapshot, usersSnapshot] = await Promise.all([
+        db.collection("assignments").where("managerId", "==", managerId).get(),
+        db.collection("reports").get(),
+        db.collection("users").get()
+      ]);
+      const usersById = Object.fromEntries(
+        usersSnapshot.docs.map((doc) => {
+          const user = normalizeUser(doc.data());
+          return [user.id, user];
+        })
+      );
+      const reports = listManagerTodayReports({
+        managerId,
+        reports: reportsSnapshot.docs.map((doc) => normalizeReport(doc.data())),
+        assignments: assignmentsSnapshot.docs.map((doc) => normalizeAssignment(doc.data())),
+        workerUsersById: usersById,
+        targetDate
+      });
+
+      response.json({
+        status: "ok",
+        reports
+      });
+    } catch (error) {
+      writeReportReviewError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "GET" && request.path === "/getManagerReportDetail") {
+    try {
+      const db = getFirestore();
+      const managerId = String(request.query.managerId ?? "");
+      const reportId = String(request.query.reportId ?? "");
+      const reportSnapshot = await db.collection("reports").doc(reportId).get();
+      if (!reportSnapshot.exists) {
+        throw new ReportReviewError("REPORT_NOT_FOUND", "report was not found");
+      }
+      const report = normalizeReport(reportSnapshot.data() ?? {});
+      const assignmentSnapshot = await db.collection("assignments").doc(report.workerId).get();
+      if (!assignmentSnapshot.exists) {
+        throw new ReportReviewError("ASSIGNMENT_NOT_FOUND", "assignment was not found");
+      }
+      const reportDetail = getManagerReportDetail({
+        managerId,
+        report,
+        assignment: normalizeAssignment(assignmentSnapshot.data() ?? {})
+      });
+
+      response.json({
+        status: "ok",
+        report: reportDetail
+      });
+    } catch (error) {
+      writeReportReviewError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "GET" && request.path === "/listSupporterWorkers") {
+    try {
+      const db = getFirestore();
+      const supporterId = String(request.query.supporterId ?? "");
+      const [assignmentsSnapshot, usersSnapshot] = await Promise.all([
+        db.collection("assignments").where("supporterId", "==", supporterId).get(),
+        db.collection("users").get()
+      ]);
+      const usersById = Object.fromEntries(
+        usersSnapshot.docs.map((doc) => {
+          const user = normalizeUser(doc.data());
+          return [user.id, user];
+        })
+      );
+      const workers = listSupporterWorkers({
+        supporterId,
+        assignments: assignmentsSnapshot.docs.map((doc) => normalizeAssignment(doc.data())),
+        usersById
+      });
+
+      response.json({
+        status: "ok",
+        workers
+      });
+    } catch (error) {
+      writeReportReviewError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "GET" && request.path === "/getSupporterWorkerReport") {
+    try {
+      const db = getFirestore();
+      const supporterId = String(request.query.supporterId ?? "");
+      const workerId = String(request.query.workerId ?? "");
+      const [assignmentSnapshot, reportsSnapshot] = await Promise.all([
+        db.collection("assignments").doc(workerId).get(),
+        db.collection("reports").where("workerId", "==", workerId).get()
+      ]);
+      if (!assignmentSnapshot.exists) {
+        throw new ReportReviewError("ASSIGNMENT_NOT_FOUND", "assignment was not found");
+      }
+      const reports = getSupporterWorkerReport({
+        supporterId,
+        workerId,
+        reports: reportsSnapshot.docs.map((doc) => normalizeReport(doc.data())),
+        assignment: normalizeAssignment(assignmentSnapshot.data() ?? {}),
+        now: new Date()
+      });
+
+      response.json({
+        status: "ok",
+        reports
+      });
+    } catch (error) {
+      writeReportReviewError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "GET" && request.path === "/listAdminUsers") {
+    try {
+      const db = getFirestore();
+      const usersSnapshot = await db.collection("users").get();
+      const users = listAdminUsers({
+        users: usersSnapshot.docs.map((doc) => normalizeUser(doc.data()))
+      });
+
+      response.json({
+        status: "ok",
+        users
+      });
+    } catch (error) {
+      writeReportReviewError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "GET" && request.path === "/listAuditLogs") {
+    try {
+      const db = getFirestore();
+      const auditLogsSnapshot = await db.collection("auditLogs").get();
+      const auditLogs = listAuditLogs({
+        auditLogs: auditLogsSnapshot.docs.map((doc) => normalizeAuditLog(doc.data()))
+      });
+
+      response.json({
+        status: "ok",
+        auditLogs
+      });
+    } catch (error) {
+      writeReportReviewError(response, error);
+    }
+    return;
+  }
+
+  if (request.method === "POST" && request.path === "/getReportForAdmin") {
+    try {
+      const db = getFirestore();
+      const reportId = String(request.body?.reportId ?? "");
+      const reportSnapshot = await db.collection("reports").doc(reportId).get();
+      if (!reportSnapshot.exists) {
+        throw new ReportReviewError("REPORT_NOT_FOUND", "report was not found");
+      }
+      const result = getAdminReportDetail({
+        adminId: String(request.body?.adminId ?? ""),
+        report: normalizeReport(reportSnapshot.data() ?? {}),
+        reason: String(request.body?.reason ?? "")
+      });
+      await db.collection("auditLogs").doc(result.auditLog.id).set(result.auditLog);
+
+      response.json({
+        status: "ok",
+        report: result.report,
+        auditLog: result.auditLog
+      });
+    } catch (error) {
+      writeReportReviewError(response, error);
+    }
+    return;
+  }
+
   if (request.method === "POST" && request.path === "/inviteUser") {
     try {
       const db = getFirestore();
@@ -1187,6 +1386,25 @@ function writeReportHistoryError(
   });
 }
 
+function writeReportReviewError(
+  response: Parameters<Parameters<typeof onRequest>[0]>[1],
+  error: unknown
+): void {
+  if (error instanceof ReportReviewError) {
+    response.status(400).json({
+      error: "invalid_argument",
+      errorCode: error.code,
+      message: error.message
+    });
+    return;
+  }
+
+  response.status(400).json({
+    error: "invalid_argument",
+    message: error instanceof Error ? error.message : "Invalid request"
+  });
+}
+
 function writeAdminUserManagementError(
   response: Parameters<Parameters<typeof onRequest>[0]>[1],
   error: unknown
@@ -1336,6 +1554,13 @@ function normalizeLog(data: FirebaseFirestore.DocumentData): NotificationLogDocu
     clickedAt: data.clickedAt === undefined ? undefined : asDate(data.clickedAt),
     createdAt: asDate(data.createdAt)
   } as NotificationLogDocument;
+}
+
+function normalizeAuditLog(data: FirebaseFirestore.DocumentData): AuditLogDocument {
+  return {
+    ...data,
+    createdAt: asDate(data.createdAt)
+  } as AuditLogDocument;
 }
 
 function normalizeInvitation(data: FirebaseFirestore.DocumentData): InvitationDocument {
