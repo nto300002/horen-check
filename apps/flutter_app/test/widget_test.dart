@@ -255,6 +255,11 @@ void main() {
     expect(find.text('一般就労移行詳細'), findsOneWidget);
     expect(find.text('oldManagerId'), findsOneWidget);
     expect(find.text('newManagerId'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('transitionRecipientPolicy'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('transitionRecipientPolicy'), findsOneWidget);
     expect(find.text('完了理由'), findsOneWidget);
     await tester.scrollUntilVisible(
