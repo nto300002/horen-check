@@ -158,6 +158,20 @@ void main() {
     expect(find.text('報告本文'), findsOneWidget);
     expect(find.textContaining('優先順位について相談があります'), findsOneWidget);
     expect(find.text('相談返信'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/manager/consultations',
+    ));
+    expect(find.text('相談スレッド一覧'), findsOneWidget);
+    expect(find.textContaining('open / Worker One'), findsOneWidget);
+
+    await tester.tap(find.textContaining('open / Worker One'));
+    await tester.pumpAndSettle();
+    expect(find.text('相談スレッド'), findsOneWidget);
+    expect(find.text('午後は商品登録から進めましょう'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '返信する'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '完了にする'), findsOneWidget);
   });
 
   testWidgets('renders supporter worker list and last 90 days report body', (tester) async {
@@ -180,6 +194,28 @@ void main() {
     expect(find.text('報告詳細・相談返信'), findsOneWidget);
     expect(find.textContaining('優先順位について相談があります'), findsOneWidget);
     expect(find.text('相談返信'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/supporter/consultations',
+    ));
+    expect(find.text('相談スレッド一覧'), findsOneWidget);
+    expect(find.textContaining('open / Worker One'), findsOneWidget);
+  });
+
+  testWidgets('renders worker consultation thread routes', (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/worker/consultations'));
+
+    expect(find.text('相談スレッド一覧'), findsOneWidget);
+    expect(find.textContaining('open / AM_START'), findsOneWidget);
+
+    await tester.tap(find.textContaining('open / AM_START'));
+    await tester.pumpAndSettle();
+    expect(find.text('相談スレッド'), findsOneWidget);
+    expect(find.text('午後は商品登録から進めましょう'), findsOneWidget);
+    expect(find.text('返信本文'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '返信する'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '完了にする'), findsOneWidget);
   });
 
   testWidgets('renders admin audit logs and reason-gated report body view', (tester) async {

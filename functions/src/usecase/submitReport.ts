@@ -1,6 +1,7 @@
 import {
   AssignmentDocument,
   AuditLogDocument,
+  ConsultationThreadDocument,
   IdempotencyKeyDocument,
   ReportDeliveryDocument,
   ReportDocument,
@@ -13,6 +14,7 @@ import {
   resolveRecipients,
   validateRequiredRecipients
 } from "./recipientResolution";
+import { createConsultationThreadDocument } from "./manageConsultationThread";
 
 export class SubmitReportError extends Error {
   constructor(readonly code: string, message: string) {
@@ -52,6 +54,7 @@ export interface SubmitReportResult {
   generatedText?: string;
   report?: ReportDocument;
   reportEvent?: ReportEventDocument;
+  consultationThread?: ConsultationThreadDocument;
   deliveries: ReportDeliveryDocument[];
   auditLog?: AuditLogDocument;
   idempotencyKey: IdempotencyKeyDocument;
@@ -284,6 +287,7 @@ export async function submitReportDocuments(
     generatedText,
     report,
     reportEvent,
+    consultationThread: createConsultationThreadDocument({ report }, now),
     deliveries,
     auditLog: auditLog(report, now),
     idempotencyKey: idempotencyDocument(input, now)

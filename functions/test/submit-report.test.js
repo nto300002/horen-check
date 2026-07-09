@@ -143,6 +143,8 @@ test("submits an AM_START report, stores recipients, deliveries, event status, a
   assert.equal(result.deliveries.find((item) => item.recipientUserId === "supporter-1").status, "sent");
   assert.equal(result.deliveries.find((item) => item.recipientUserId === "manager-1").status, "failed");
   assert.equal(result.auditLog.action, "report_submitted");
+  assert.equal(result.consultationThread.id, "report-1");
+  assert.equal(result.consultationThread.status, "open");
   assert.equal(result.idempotencyKey.status, "completed");
   assert.equal(result.idempotencyKey.response.reportId, "report-1");
 });
