@@ -297,39 +297,84 @@ MaterialPageRoute<void> _pageRoute(RouteSettings settings, Widget page) {
   );
 }
 
-PreferredSizeWidget _breadcrumbAppBar(
+PreferredSizeWidget _commonAppBar(
   BuildContext context, {
   required String title,
-  required List<BreadcrumbItem> breadcrumbs,
+  List<BreadcrumbItem> breadcrumbs = const [],
+  List<Widget> actions = const [],
+  PreferredSizeWidget? bottom,
 }) {
   return AppBar(
-    toolbarHeight: 88,
-    automaticallyImplyLeading: false,
+    toolbarHeight: breadcrumbs.isEmpty ? 72 : 88,
+    automaticallyImplyLeading: true,
     centerTitle: false,
     titleSpacing: 16,
     title: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _BreadcrumbTrail(items: breadcrumbs),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'アカウント: ${currentAccountName(context)}',
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/',
+                (route) => false,
+              ),
+              child: const Text('ログアウト'),
+            ),
+          ],
+        ),
         const SizedBox(height: 4),
+        if (breadcrumbs.isNotEmpty) ...[
+          _BreadcrumbTrail(items: breadcrumbs),
+          const SizedBox(height: 4),
+        ],
         Text(title),
       ],
     ),
-    actions: [
-      Padding(
-        padding: const EdgeInsets.only(right: 16),
-        child: TextButton(
-          onPressed: () => Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/',
-            (route) => false,
-          ),
-          child: const Text('ログアウト'),
-        ),
-      ),
-    ],
+    actions: actions,
+    bottom: bottom,
   );
+}
+
+PreferredSizeWidget _breadcrumbAppBar(
+  BuildContext context, {
+  required String title,
+  required List<BreadcrumbItem> breadcrumbs,
+}) {
+  return _commonAppBar(
+    context,
+    title: title,
+    breadcrumbs: breadcrumbs,
+  );
+}
+
+String currentAccountName(BuildContext context) {
+  final routeName = ModalRoute.of(context)?.settings.name ?? '';
+  if (routeName == '/') {
+    return 'ゲスト';
+  }
+  if (routeName.startsWith('/admin')) {
+    return 'Admin One';
+  }
+  if (routeName.startsWith('/manager')) {
+    return 'Manager One';
+  }
+  if (routeName.startsWith('/supporter')) {
+    return 'Supporter One';
+  }
+  return 'Worker One';
 }
 
 class BreadcrumbItem {
@@ -862,9 +907,7 @@ class RegisterPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ホウレンチェック'),
-      ),
+      appBar: _commonAppBar(context, title: 'ホウレンチェック'),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -1042,8 +1085,9 @@ class NotificationHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('通知モードホーム'),
+      appBar: _commonAppBar(
+        context,
+        title: '通知モードホーム',
         actions: [
           IconButton(
             tooltip: '設定',
@@ -1109,8 +1153,9 @@ class NotificationSchedulesPage extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('通知スケジュール'),
+        appBar: _commonAppBar(
+          context,
+          title: '通知スケジュール',
           bottom: const TabBar(
             tabs: [
               Tab(text: 'AM/PM通知'),
@@ -1175,9 +1220,7 @@ class AmPmScheduleEditPage extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('AM/PM通知編集'),
-      ),
+      appBar: _commonAppBar(context, title: 'AM/PM通知編集'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1243,9 +1286,8 @@ class CustomScheduleEditPage extends StatelessWidget {
     final isNew = scheduleId == null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isNew ? 'CUSTOM通知作成' : 'CUSTOM通知編集'),
-      ),
+      appBar:
+          _commonAppBar(context, title: isNew ? 'CUSTOM通知作成' : 'CUSTOM通知編集'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1310,9 +1352,7 @@ class NotificationLogsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('通知履歴'),
-      ),
+      appBar: _commonAppBar(context, title: '通知履歴'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1346,9 +1386,7 @@ class NotificationSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('設定'),
-      ),
+      appBar: _commonAppBar(context, title: '設定'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1536,9 +1574,7 @@ class AdminUsersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ユーザー管理'),
-      ),
+      appBar: _commonAppBar(context, title: 'ユーザー管理'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1589,9 +1625,7 @@ class AdminUserDetailPage extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ユーザー詳細'),
-      ),
+      appBar: _commonAppBar(context, title: 'ユーザー詳細'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1616,9 +1650,7 @@ class AdminInvitationsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('招待管理'),
-      ),
+      appBar: _commonAppBar(context, title: '招待管理'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1676,9 +1708,7 @@ class AdminRolesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ロール管理'),
-      ),
+      appBar: _commonAppBar(context, title: 'ロール管理'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1722,9 +1752,7 @@ class AdminAssignmentsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('担当者紐づけ'),
-      ),
+      appBar: _commonAppBar(context, title: '担当者紐づけ'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1766,9 +1794,7 @@ class AdminAuditLogsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('監査ログ'),
-      ),
+      appBar: _commonAppBar(context, title: '監査ログ'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1807,9 +1833,7 @@ class AdminReportBodyPage extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('報告本文閲覧'),
-      ),
+      appBar: _commonAppBar(context, title: '報告本文閲覧'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1847,9 +1871,7 @@ class ManagerHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('managerホーム'),
-      ),
+      appBar: _commonAppBar(context, title: 'managerホーム'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1882,9 +1904,7 @@ class ManagerWorkersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('担当worker当日一覧'),
-      ),
+      appBar: _commonAppBar(context, title: '担当worker当日一覧'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1921,9 +1941,7 @@ class ManagerReportDetailPage extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('当日報告詳細'),
-      ),
+      appBar: _commonAppBar(context, title: '当日報告詳細'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1953,9 +1971,7 @@ class SupporterHomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('supporterホーム'),
-      ),
+      appBar: _commonAppBar(context, title: 'supporterホーム'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -1983,9 +1999,7 @@ class SupporterWorkersPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('担当worker一覧'),
-      ),
+      appBar: _commonAppBar(context, title: '担当worker一覧'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2024,9 +2038,7 @@ class SupporterWorkerDetailPage extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('worker詳細'),
-      ),
+      appBar: _commonAppBar(context, title: 'worker詳細'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2073,9 +2085,7 @@ class SupporterReportDetailPage extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('報告詳細・相談返信'),
-      ),
+      appBar: _commonAppBar(context, title: '報告詳細・相談返信'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2111,9 +2121,7 @@ class ConsultationThreadsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('相談スレッド一覧'),
-      ),
+      appBar: _commonAppBar(context, title: '相談スレッド一覧'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2155,9 +2163,7 @@ class ConsultationThreadDetailPage extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('相談スレッド'),
-      ),
+      appBar: _commonAppBar(context, title: '相談スレッド'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2206,9 +2212,7 @@ class WorkerEmploymentTransitionRequestPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('一般就労移行希望申請'),
-      ),
+      appBar: _commonAppBar(context, title: '一般就労移行希望申請'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2254,9 +2258,7 @@ class WorkerEmploymentTransitionPendingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('移行申請中'),
-      ),
+      appBar: _commonAppBar(context, title: '移行申請中'),
       body: const SafeArea(
         child: Padding(
           padding: EdgeInsets.all(20),
@@ -2284,9 +2286,8 @@ class EmploymentTransitionsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(actorRole == 'admin' ? '一般就労移行管理' : '一般就労移行一覧'),
-      ),
+      appBar: _commonAppBar(context,
+          title: actorRole == 'admin' ? '一般就労移行管理' : '一般就労移行一覧'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2329,9 +2330,7 @@ class EmploymentTransitionDetailPage extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('一般就労移行詳細'),
-      ),
+      appBar: _commonAppBar(context, title: '一般就労移行詳細'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2419,9 +2418,7 @@ class _ModeSwitchRequestsScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-      ),
+      appBar: _commonAppBar(context, title: title),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2467,9 +2464,7 @@ class ModeSwitchRequestDetailPage extends StatelessWidget {
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('モード切替申請詳細'),
-      ),
+      appBar: _commonAppBar(context, title: 'モード切替申請詳細'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2600,9 +2595,7 @@ class WorkerTodayReportPage extends StatelessWidget {
     final generatedText = _generatedReportPreview(reportType);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('$reportType報告'),
-      ),
+      appBar: _commonAppBar(context, title: '$reportType報告'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2690,9 +2683,7 @@ class WorkerReportsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('報告履歴'),
-      ),
+      appBar: _commonAppBar(context, title: '報告履歴'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2727,9 +2718,7 @@ class WorkerReportDetailPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('報告詳細'),
-      ),
+      appBar: _commonAppBar(context, title: '報告詳細'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -2772,9 +2761,7 @@ class WorkerReportCorrectionPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('訂正版作成'),
-      ),
+      appBar: _commonAppBar(context, title: '訂正版作成'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -3022,9 +3009,7 @@ class PrivacyPolicyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('プライバシーポリシー'),
-      ),
+      appBar: _commonAppBar(context, title: 'プライバシーポリシー'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -3052,9 +3037,7 @@ class TermsOfServicePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('利用規約'),
-      ),
+      appBar: _commonAppBar(context, title: '利用規約'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),

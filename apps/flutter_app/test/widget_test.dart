@@ -216,6 +216,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('相談スレッド'), findsOneWidget);
     expect(find.text('午後は商品登録から進めましょう'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.widgetWithText(FilledButton, '返信する'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.widgetWithText(FilledButton, '返信する'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.widgetWithText(OutlinedButton, '完了にする'),
@@ -268,6 +273,11 @@ void main() {
     expect(find.text('相談スレッド'), findsOneWidget);
     expect(find.text('午後は商品登録から進めましょう'), findsOneWidget);
     expect(find.text('返信本文'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.widgetWithText(FilledButton, '返信する'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.widgetWithText(FilledButton, '返信する'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.widgetWithText(OutlinedButton, '完了にする'),
