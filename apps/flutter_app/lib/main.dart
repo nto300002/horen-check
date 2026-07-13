@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const ProviderScope(child: HorenCheckApp()));
@@ -9,18 +12,26 @@ class HorenCheckApp extends StatelessWidget {
   const HorenCheckApp({
     super.key,
     this.initialRoute = '/',
+    this.registrationClient,
   });
 
   final String initialRoute;
+  final RegistrationClient? registrationClient;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'ホウレンチェック',
       initialRoute: initialRoute,
-      onGenerateRoute: _buildRoute,
+      onGenerateRoute: (settings) => _buildRoute(
+        settings,
+        registrationClient ?? const HttpRegistrationClient(),
+      ),
       onGenerateInitialRoutes: (initialRoute) => [
-        _buildRoute(RouteSettings(name: initialRoute)),
+        _buildRoute(
+          RouteSettings(name: initialRoute),
+          registrationClient ?? const HttpRegistrationClient(),
+        ),
       ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -32,11 +43,53 @@ class HorenCheckApp extends StatelessWidget {
   }
 }
 
-Route<void> _buildRoute(RouteSettings settings) {
+abstract class RegistrationClient {
+  Future<void> registerNotificationMode({
+    required String name,
+    required String email,
+    required String password,
+  });
+}
+
+class HttpRegistrationClient implements RegistrationClient {
+  const HttpRegistrationClient({
+    this.apiBaseUrl = 'http://127.0.0.1:5001',
+  });
+
+  final String apiBaseUrl;
+
+  @override
+  Future<void> registerNotificationMode({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl/api/notification-users'),
+      headers: const {
+        'content-type': 'application/json',
+      },
+      body: jsonEncode({
+        'name': name,
+        'email': email,
+        'password': password,
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('registration failed: ${response.statusCode}');
+    }
+  }
+}
+
+Route<void> _buildRoute(
+  RouteSettings settings,
+  RegistrationClient registrationClient,
+) {
   final name = settings.name ?? '/';
 
   if (name == '/') {
-    return _pageRoute(settings, const RegisterPage());
+    return _pageRoute(
+        settings, RegisterPage(registrationClient: registrationClient));
   }
   if (name == '/notification/home') {
     return _pageRoute(settings, const NotificationHomePage());
@@ -93,21 +146,26 @@ Route<void> _buildRoute(RouteSettings settings) {
     return _pageRoute(settings, const AdminModeSwitchRequestsPage());
   }
   if (name == '/admin/employment-transitions') {
-    return _pageRoute(settings, const EmploymentTransitionsPage(actorRole: 'admin'));
+    return _pageRoute(
+        settings, const EmploymentTransitionsPage(actorRole: 'admin'));
   }
   if (name.startsWith('/admin/employment-transitions/')) {
     final transitionId = name.split('/').last;
-    return _pageRoute(settings, EmploymentTransitionDetailPage(
-      transitionId: transitionId,
-      actorRole: 'admin',
-    ));
+    return _pageRoute(
+        settings,
+        EmploymentTransitionDetailPage(
+          transitionId: transitionId,
+          actorRole: 'admin',
+        ));
   }
   if (name.startsWith('/admin/mode-switch-requests/')) {
     final requestId = name.split('/').last;
-    return _pageRoute(settings, ModeSwitchRequestDetailPage(
-      requestId: requestId,
-      actorRole: 'admin',
-    ));
+    return _pageRoute(
+        settings,
+        ModeSwitchRequestDetailPage(
+          requestId: requestId,
+          actorRole: 'admin',
+        ));
   }
   if (name.startsWith('/admin/reports/')) {
     final reportId = name.split('/').last;
@@ -120,14 +178,17 @@ Route<void> _buildRoute(RouteSettings settings) {
     return _pageRoute(settings, const ManagerWorkersPage());
   }
   if (name == '/manager/consultations') {
-    return _pageRoute(settings, const ConsultationThreadsPage(actorRole: 'manager'));
+    return _pageRoute(
+        settings, const ConsultationThreadsPage(actorRole: 'manager'));
   }
   if (name.startsWith('/manager/consultations/')) {
     final threadId = name.split('/').last;
-    return _pageRoute(settings, ConsultationThreadDetailPage(
-      threadId: threadId,
-      actorRole: 'manager',
-    ));
+    return _pageRoute(
+        settings,
+        ConsultationThreadDetailPage(
+          threadId: threadId,
+          actorRole: 'manager',
+        ));
   }
   if (name.startsWith('/manager/reports/')) {
     final reportId = name.split('/').last;
@@ -143,31 +204,39 @@ Route<void> _buildRoute(RouteSettings settings) {
     return _pageRoute(settings, const SupporterModeSwitchRequestsPage());
   }
   if (name == '/supporter/employment-transitions') {
-    return _pageRoute(settings, const EmploymentTransitionsPage(actorRole: 'supporter'));
+    return _pageRoute(
+        settings, const EmploymentTransitionsPage(actorRole: 'supporter'));
   }
   if (name.startsWith('/supporter/employment-transitions/')) {
     final transitionId = name.split('/').last;
-    return _pageRoute(settings, EmploymentTransitionDetailPage(
-      transitionId: transitionId,
-      actorRole: 'supporter',
-    ));
+    return _pageRoute(
+        settings,
+        EmploymentTransitionDetailPage(
+          transitionId: transitionId,
+          actorRole: 'supporter',
+        ));
   }
   if (name == '/supporter/consultations') {
-    return _pageRoute(settings, const ConsultationThreadsPage(actorRole: 'supporter'));
+    return _pageRoute(
+        settings, const ConsultationThreadsPage(actorRole: 'supporter'));
   }
   if (name.startsWith('/supporter/consultations/')) {
     final threadId = name.split('/').last;
-    return _pageRoute(settings, ConsultationThreadDetailPage(
-      threadId: threadId,
-      actorRole: 'supporter',
-    ));
+    return _pageRoute(
+        settings,
+        ConsultationThreadDetailPage(
+          threadId: threadId,
+          actorRole: 'supporter',
+        ));
   }
   if (name.startsWith('/supporter/mode-switch-requests/')) {
     final requestId = name.split('/').last;
-    return _pageRoute(settings, ModeSwitchRequestDetailPage(
-      requestId: requestId,
-      actorRole: 'supporter',
-    ));
+    return _pageRoute(
+        settings,
+        ModeSwitchRequestDetailPage(
+          requestId: requestId,
+          actorRole: 'supporter',
+        ));
   }
   if (name.startsWith('/supporter/workers/')) {
     final workerId = name.split('/').last;
@@ -178,14 +247,17 @@ Route<void> _buildRoute(RouteSettings settings) {
     return _pageRoute(settings, SupporterReportDetailPage(reportId: reportId));
   }
   if (name == '/worker/consultations') {
-    return _pageRoute(settings, const ConsultationThreadsPage(actorRole: 'worker'));
+    return _pageRoute(
+        settings, const ConsultationThreadsPage(actorRole: 'worker'));
   }
   if (name.startsWith('/worker/consultations/')) {
     final threadId = name.split('/').last;
-    return _pageRoute(settings, ConsultationThreadDetailPage(
-      threadId: threadId,
-      actorRole: 'worker',
-    ));
+    return _pageRoute(
+        settings,
+        ConsultationThreadDetailPage(
+          threadId: threadId,
+          actorRole: 'worker',
+        ));
   }
   if (name == '/worker/employment-transition/request') {
     return _pageRoute(settings, const WorkerEmploymentTransitionRequestPage());
@@ -222,6 +294,47 @@ MaterialPageRoute<void> _pageRoute(RouteSettings settings, Widget page) {
   return MaterialPageRoute<void>(
     settings: settings,
     builder: (_) => page,
+  );
+}
+
+PreferredSizeWidget _breadcrumbAppBar(
+  BuildContext context, {
+  required String title,
+  required List<String> breadcrumbs,
+}) {
+  return AppBar(
+    toolbarHeight: 88,
+    automaticallyImplyLeading: false,
+    centerTitle: false,
+    titleSpacing: 16,
+    title: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          breadcrumbs.join(' > '),
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 4),
+        Text(title),
+      ],
+    ),
+    actions: [
+      Padding(
+        padding: const EdgeInsets.only(right: 16),
+        child: TextButton(
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/',
+            (route) => false,
+          ),
+          child: const Text('ログアウト'),
+        ),
+      ),
+    ],
   );
 }
 
@@ -608,8 +721,33 @@ const employmentTransitions = [
   ),
 ];
 
+String employmentContextLabel(String value) {
+  return switch (value) {
+    'supported_facility' => '福祉施設内就労',
+    'general_employment' => '一般就労',
+    _ => value,
+  };
+}
+
+String requestStatusLabel(String value) {
+  return switch (value) {
+    'pending' => '申請中',
+    'approved' => '承認済み',
+    'rejected' => '却下',
+    'active' => '進行中',
+    'completed' => '完了',
+    'cancelled' => 'キャンセル',
+    _ => value,
+  };
+}
+
 class RegisterPage extends StatelessWidget {
-  const RegisterPage({super.key});
+  const RegisterPage({
+    super.key,
+    required this.registrationClient,
+  });
+
+  final RegistrationClient registrationClient;
 
   @override
   Widget build(BuildContext context) {
@@ -617,28 +755,28 @@ class RegisterPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('ホウレンチェック'),
       ),
-      body: const SafeArea(
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
+              const Text(
                 '通知モード新規登録',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              SizedBox(height: 12),
-              Text(
+              const SizedBox(height: 12),
+              const Text(
                 'まずは自分だけで通知を使えます。',
                 style: TextStyle(fontSize: 16, height: 1.6),
               ),
-              SizedBox(height: 24),
-              _RegistrationForm(),
-              SizedBox(height: 24),
-              _InitialNotificationPreview(),
+              const SizedBox(height: 24),
+              _RegistrationForm(registrationClient: registrationClient),
+              const SizedBox(height: 24),
+              const _InitialNotificationPreview(),
             ],
           ),
         ),
@@ -647,41 +785,116 @@ class RegisterPage extends StatelessWidget {
   }
 }
 
-class _RegistrationForm extends StatelessWidget {
-  const _RegistrationForm();
+class _RegistrationForm extends StatefulWidget {
+  const _RegistrationForm({
+    required this.registrationClient,
+  });
+
+  final RegistrationClient registrationClient;
+
+  @override
+  State<_RegistrationForm> createState() => _RegistrationFormState();
+}
+
+class _RegistrationFormState extends State<_RegistrationForm> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = '名前、メールアドレス、パスワードを入力してください。';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.registrationClient.registerNotificationMode(
+        name: name,
+        email: email,
+        password: password,
+      );
+      if (!mounted) {
+        return;
+      }
+      Navigator.pushReplacementNamed(context, '/notification/home');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _errorMessage = '登録に失敗しました。APIサーバーの起動状態を確認してください。';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const TextField(
-          decoration: InputDecoration(
+        TextField(
+          controller: _nameController,
+          decoration: const InputDecoration(
             labelText: '名前',
             border: OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 12),
-        const TextField(
-          decoration: InputDecoration(
+        TextField(
+          controller: _emailController,
+          decoration: const InputDecoration(
             labelText: 'メールアドレス',
             border: OutlineInputBorder(),
           ),
           keyboardType: TextInputType.emailAddress,
         ),
         const SizedBox(height: 12),
-        const TextField(
-          decoration: InputDecoration(
+        TextField(
+          controller: _passwordController,
+          decoration: const InputDecoration(
             labelText: 'パスワード',
             border: OutlineInputBorder(),
           ),
           obscureText: true,
         ),
         const SizedBox(height: 16),
+        if (_errorMessage != null) ...[
+          Text(
+            _errorMessage!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(height: 12),
+        ],
         FilledButton.icon(
-          onPressed: () {},
+          onPressed: _isSubmitting ? null : _submit,
           icon: const Icon(Icons.person_add_alt_1),
-          label: const Text('登録する'),
+          label: Text(_isSubmitting ? '登録中' : '登録する'),
         ),
         TextButton(
           onPressed: () {},
@@ -724,7 +937,8 @@ class NotificationHomePage extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: '設定',
-            onPressed: () => Navigator.pushNamed(context, '/notification/settings'),
+            onPressed: () =>
+                Navigator.pushNamed(context, '/notification/settings'),
             icon: const Icon(Icons.settings),
           ),
         ],
@@ -736,7 +950,8 @@ class NotificationHomePage extends StatelessWidget {
             const _SectionTitle('次の通知'),
             _NotificationCard(
               title: amPmSchedules.first.title,
-              meta: '${amPmSchedules.first.time} / ${amPmSchedules.first.weekdays}',
+              meta:
+                  '${amPmSchedules.first.time} / ${amPmSchedules.first.weekdays}',
               actions: const [
                 _CompactAction(label: 'スヌーズ', icon: Icons.snooze),
                 _CompactAction(label: 'キャンセル', icon: Icons.cancel_outlined),
@@ -960,13 +1175,15 @@ class CustomScheduleEditPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/notification/schedules'),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/notification/schedules'),
               icon: const Icon(Icons.save),
               label: const Text('保存'),
             ),
             if (!isNew)
               OutlinedButton.icon(
-                onPressed: () => Navigator.pushNamed(context, '/notification/schedules'),
+                onPressed: () =>
+                    Navigator.pushNamed(context, '/notification/schedules'),
                 icon: const Icon(Icons.delete_outline),
                 label: const Text('削除'),
               ),
@@ -1001,7 +1218,8 @@ class NotificationLogsPage extends StatelessWidget {
               Card(
                 child: ListTile(
                   title: Text(log.title),
-                  subtitle: Text('${log.sentAt} / ${log.type} / ${log.channel}'),
+                  subtitle:
+                      Text('${log.sentAt} / ${log.type} / ${log.channel}'),
                   trailing: Text(log.status),
                 ),
               ),
@@ -1066,8 +1284,10 @@ class ModeSwitchRequestPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('報告支援モード切り替え申請'),
+      appBar: _breadcrumbAppBar(
+        context,
+        title: '報告支援モード切り替え申請',
+        breadcrumbs: const ['通知モードホーム', '報告支援モード切り替え申請'],
       ),
       body: SafeArea(
         child: ListView(
@@ -1084,12 +1304,14 @@ class ModeSwitchRequestPage extends StatelessWidget {
             DropdownButtonFormField<String>(
               initialValue: 'supported_facility',
               items: const [
-                DropdownMenuItem(value: 'supported_facility', child: Text('supported_facility')),
-                DropdownMenuItem(value: 'general_employment', child: Text('general_employment')),
+                DropdownMenuItem(
+                    value: 'supported_facility', child: Text('福祉施設内就労')),
+                DropdownMenuItem(
+                    value: 'general_employment', child: Text('一般就労')),
               ],
               onChanged: (_) {},
               decoration: const InputDecoration(
-                labelText: '希望employmentContext',
+                labelText: '希望する就労状況',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -1108,7 +1330,8 @@ class ModeSwitchRequestPage extends StatelessWidget {
               title: const Text('AM/PM通知を報告スケジュールへ移行'),
             ),
             FilledButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/notification/mode-switch/pending'),
+              onPressed: () => Navigator.pushNamed(
+                  context, '/notification/mode-switch/pending'),
               icon: const Icon(Icons.send),
               label: const Text('申請する'),
             ),
@@ -1125,22 +1348,25 @@ class ModeSwitchPendingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('切り替え申請中'),
+      appBar: _breadcrumbAppBar(
+        context,
+        title: '切り替え申請中',
+        breadcrumbs: const ['通知モードホーム', '報告支援モード切り替え申請', '申請中'],
       ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            const _StatusTile(label: 'status', value: 'pending'),
+            const _StatusTile(label: '申請状態', value: '申請中'),
             const Card(
               child: ListTile(
                 leading: Icon(Icons.lock_clock),
-                title: Text('pending申請中は新規申請できません'),
+                title: Text('申請中は新規申請できません'),
               ),
             ),
             OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/notification/mode-switch'),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/notification/mode-switch'),
               icon: const Icon(Icons.cancel_outlined),
               label: const Text('申請を取り消して再申請'),
             ),
@@ -1158,16 +1384,19 @@ class ModeSwitchRejectedPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final rejected = modeSwitchRequests.last;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('切り替え申請却下'),
+      appBar: _breadcrumbAppBar(
+        context,
+        title: '切り替え申請却下',
+        breadcrumbs: const ['通知モードホーム', '報告支援モード切り替え申請', '却下'],
       ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            _StatusTile(label: 'reviewComment', value: rejected.reviewComment),
+            _StatusTile(label: '却下理由', value: rejected.reviewComment),
             FilledButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/notification/mode-switch'),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/notification/mode-switch'),
               icon: const Icon(Icons.refresh),
               label: const Text('再申請する'),
             ),
@@ -1194,7 +1423,8 @@ class AdminUsersPage extends StatelessWidget {
             const _AdminNavigationRow(),
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/admin/invitations'),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/admin/invitations'),
               icon: const Icon(Icons.person_add_alt_1),
               label: const Text('ユーザーを招待'),
             ),
@@ -1202,10 +1432,14 @@ class AdminUsersPage extends StatelessWidget {
             for (final user in adminUsers)
               Card(
                 child: ListTile(
-                  onTap: () => Navigator.pushNamed(context, '/admin/users/${user.id}'),
-                  leading: Icon(user.active ? Icons.check_circle_outline : Icons.pause_circle_outline),
+                  onTap: () =>
+                      Navigator.pushNamed(context, '/admin/users/${user.id}'),
+                  leading: Icon(user.active
+                      ? Icons.check_circle_outline
+                      : Icons.pause_circle_outline),
                   title: Text(user.name),
-                  subtitle: Text('${user.email} / ${user.role} / ${user.active ? '有効' : '停止中'}'),
+                  subtitle: Text(
+                      '${user.email} / ${user.role} / ${user.active ? '有効' : '停止中'}'),
                   trailing: const Icon(Icons.chevron_right),
                 ),
               ),
@@ -1301,7 +1535,8 @@ class AdminInvitationsPage extends StatelessWidget {
                 child: ListTile(
                   leading: const Icon(Icons.mark_email_unread_outlined),
                   title: Text(invitation.email),
-                  subtitle: Text('${invitation.role} / ${invitation.expiresAt}まで'),
+                  subtitle:
+                      Text('${invitation.role} / ${invitation.expiresAt}まで'),
                   trailing: Text(invitation.status),
                 ),
               ),
@@ -1336,8 +1571,10 @@ class AdminRolesPage extends StatelessWidget {
                     value: user.role,
                     items: const [
                       DropdownMenuItem(value: 'worker', child: Text('worker')),
-                      DropdownMenuItem(value: 'manager', child: Text('manager')),
-                      DropdownMenuItem(value: 'supporter', child: Text('supporter')),
+                      DropdownMenuItem(
+                          value: 'manager', child: Text('manager')),
+                      DropdownMenuItem(
+                          value: 'supporter', child: Text('supporter')),
                     ],
                     onChanged: (_) {},
                   ),
@@ -1376,7 +1613,8 @@ class AdminAssignmentsPage extends StatelessWidget {
                 child: ListTile(
                   leading: const Icon(Icons.group_add),
                   title: Text(assignment.worker),
-                  subtitle: Text('manager: ${assignment.manager}\nsupporter: ${assignment.supporter}'),
+                  subtitle: Text(
+                      'manager: ${assignment.manager}\nsupporter: ${assignment.supporter}'),
                   trailing: Text(assignment.active ? '有効' : '解除済み'),
                 ),
               ),
@@ -1471,7 +1709,8 @@ class AdminReportBodyPage extends StatelessWidget {
             const _SectionTitle('報告本文'),
             Text(report.body),
             const SizedBox(height: 12),
-            const _StatusTile(label: 'auditLogs.action', value: 'report_viewed'),
+            const _StatusTile(
+                label: 'auditLogs.action', value: 'report_viewed'),
           ],
         ),
       ),
@@ -1501,7 +1740,8 @@ class ManagerHomePage extends StatelessWidget {
             const _SectionTitle('当日報告'),
             const _StatusTile(
               label: '4報告ステータス',
-              value: 'AM_START reported / AM_END pending / PM_START pending / PM_END pending',
+              value:
+                  'AM_START reported / AM_END pending / PM_START pending / PM_END pending',
             ),
             const SizedBox(height: 12),
             for (final report in reviewReports)
@@ -1630,7 +1870,8 @@ class SupporterWorkersPage extends StatelessWidget {
             for (final worker in supporterWorkers)
               Card(
                 child: ListTile(
-                  onTap: () => Navigator.pushNamed(context, '/supporter/workers/${worker.id}'),
+                  onTap: () => Navigator.pushNamed(
+                      context, '/supporter/workers/${worker.id}'),
                   leading: const Icon(Icons.person_search),
                   title: Text(worker.name),
                   subtitle: Text('最終報告: ${worker.lastReportAt}'),
@@ -1671,13 +1912,15 @@ class SupporterWorkerDetailPage extends StatelessWidget {
             const _StatusTile(label: '表示範囲', value: '過去90日分'),
             const _StatusTile(
               label: '4報告ステータス',
-              value: 'AM_START reported / AM_END pending / PM_START pending / PM_END pending',
+              value:
+                  'AM_START reported / AM_END pending / PM_START pending / PM_END pending',
             ),
             const SizedBox(height: 12),
             for (final report in reviewReports)
               Card(
                 child: ListTile(
-                  onTap: () => Navigator.pushNamed(context, '/supporter/reports/${report.id}'),
+                  onTap: () => Navigator.pushNamed(
+                      context, '/supporter/reports/${report.id}'),
                   leading: const Icon(Icons.description_outlined),
                   title: Text('${report.type} / ${report.submittedAt}'),
                   subtitle: Text(report.status),
@@ -1755,9 +1998,11 @@ class ConsultationThreadsPage extends StatelessWidget {
             for (final thread in consultationThreads)
               Card(
                 child: ListTile(
-                  onTap: () => Navigator.pushNamed(context, '/$actorRole/consultations/${thread.id}'),
+                  onTap: () => Navigator.pushNamed(
+                      context, '/$actorRole/consultations/${thread.id}'),
                   leading: const Icon(Icons.forum_outlined),
-                  title: Text('${thread.status} / ${actorRole == 'worker' ? thread.type : thread.workerName}'),
+                  title: Text(
+                      '${thread.status} / ${actorRole == 'worker' ? thread.type : thread.workerName}'),
                   subtitle: Text(thread.lastMessage),
                   trailing: const Icon(Icons.chevron_right),
                 ),
@@ -1796,7 +2041,9 @@ class ConsultationThreadDetailPage extends StatelessWidget {
           children: [
             _StatusTile(label: 'threadStatus', value: thread.status),
             _StatusTile(label: 'actorRole', value: actorRole),
-            _StatusTile(label: 'report', value: '${thread.type} / ${thread.workerName}'),
+            _StatusTile(
+                label: 'report',
+                value: '${thread.type} / ${thread.workerName}'),
             const SizedBox(height: 12),
             const _SectionTitle('相談内容'),
             Text(thread.lastMessage),
@@ -1846,12 +2093,14 @@ class WorkerEmploymentTransitionRequestPage extends StatelessWidget {
             DropdownButtonFormField<String>(
               initialValue: 'general_employment',
               items: const [
-                DropdownMenuItem(value: 'general_employment', child: Text('general_employment')),
-                DropdownMenuItem(value: 'supported_facility', child: Text('supported_facility')),
+                DropdownMenuItem(
+                    value: 'general_employment', child: Text('一般就労')),
+                DropdownMenuItem(
+                    value: 'supported_facility', child: Text('福祉施設内就労')),
               ],
               onChanged: (_) {},
               decoration: const InputDecoration(
-                labelText: '希望employmentContext',
+                labelText: '希望する就労状況',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -1891,7 +2140,7 @@ class WorkerEmploymentTransitionPendingPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _StatusTile(label: '申請状態', value: 'general_employment / pending'),
+              _StatusTile(label: '申請状態', value: '一般就労 / 申請中'),
               _StatusTile(label: 'メッセージ', value: '一般就労先でも報連相を安定させたいです'),
             ],
           ),
@@ -1922,10 +2171,13 @@ class EmploymentTransitionsPage extends StatelessWidget {
             for (final transition in employmentTransitions)
               Card(
                 child: ListTile(
-                  onTap: () => Navigator.pushNamed(context, '/$actorRole/employment-transitions/${transition.id}'),
+                  onTap: () => Navigator.pushNamed(context,
+                      '/$actorRole/employment-transitions/${transition.id}'),
                   leading: const Icon(Icons.work_history_outlined),
-                  title: Text('${transition.status} / ${transition.workerName}'),
-                  subtitle: Text('${transition.fromContext} -> ${transition.toContext}'),
+                  title:
+                      Text('${transition.status} / ${transition.workerName}'),
+                  subtitle: Text(
+                      '${transition.fromContext} -> ${transition.toContext}'),
                   trailing: const Icon(Icons.chevron_right),
                 ),
               ),
@@ -1963,12 +2215,18 @@ class EmploymentTransitionDetailPage extends StatelessWidget {
           children: [
             _StatusTile(label: 'actorRole', value: actorRole),
             _StatusTile(label: 'status', value: transition.status),
-            _StatusTile(label: 'from/to', value: '${transition.fromContext} -> ${transition.toContext}'),
+            _StatusTile(
+                label: 'from/to',
+                value: '${transition.fromContext} -> ${transition.toContext}'),
             _StatusTile(label: 'oldManagerId', value: transition.oldManagerId),
             _StatusTile(label: 'newManagerId', value: transition.newManagerId),
-            _StatusTile(label: 'oldSupporterId', value: transition.oldSupporterId),
-            _StatusTile(label: 'newSupporterId', value: transition.newSupporterId),
-            _StatusTile(label: 'transitionRecipientPolicy', value: transition.transitionRecipientPolicy),
+            _StatusTile(
+                label: 'oldSupporterId', value: transition.oldSupporterId),
+            _StatusTile(
+                label: 'newSupporterId', value: transition.newSupporterId),
+            _StatusTile(
+                label: 'transitionRecipientPolicy',
+                value: transition.transitionRecipientPolicy),
             const SizedBox(height: 12),
             const TextField(
               decoration: InputDecoration(
@@ -2054,7 +2312,10 @@ class _ModeSwitchRequestsScaffold extends StatelessWidget {
                   ),
                   leading: const Icon(Icons.sync_alt),
                   title: Text(request.workerName),
-                  subtitle: Text('${request.employmentContext} / ${request.status}'),
+                  subtitle: Text(
+                    '${employmentContextLabel(request.employmentContext)} / '
+                    '${requestStatusLabel(request.status)}',
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                 ),
               ),
@@ -2090,28 +2351,30 @@ class ModeSwitchRequestDetailPage extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            _StatusTile(label: 'worker', value: request.workerName),
-            _StatusTile(label: 'supporterEmail', value: request.supporterEmail),
-            _StatusTile(label: 'employmentContext', value: request.employmentContext),
-            _StatusTile(label: 'message', value: request.message),
+            _StatusTile(label: '利用者', value: request.workerName),
+            _StatusTile(label: '支援員メールアドレス', value: request.supporterEmail),
+            _StatusTile(
+                label: '希望する就労状況',
+                value: employmentContextLabel(request.employmentContext)),
+            _StatusTile(label: 'メッセージ', value: request.message),
             const SizedBox(height: 12),
             const TextField(
               decoration: InputDecoration(
-                labelText: 'managerId',
+                labelText: '上司ID',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             const TextField(
               decoration: InputDecoration(
-                labelText: 'supporterId',
+                labelText: '支援員ID',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             const TextField(
               decoration: InputDecoration(
-                labelText: 'reviewComment',
+                labelText: '確認コメント',
                 border: OutlineInputBorder(),
               ),
               maxLines: 2,
@@ -2120,7 +2383,7 @@ class ModeSwitchRequestDetailPage extends StatelessWidget {
             SwitchListTile(
               value: true,
               onChanged: (_) {},
-              title: const Text('convert_am_pm'),
+              title: const Text('AM/PM通知を報告スケジュールへ移行'),
             ),
             FilledButton.icon(
               onPressed: () {},
@@ -2283,7 +2546,8 @@ class WorkerTodayReportPage extends StatelessWidget {
             const SizedBox(height: 20),
             const _SectionTitle('送信完了'),
             const _StatusTile(label: 'reportEvents.status', value: 'reported'),
-            const _StatusTile(label: 'delivery', value: 'manager@example.com failed'),
+            const _StatusTile(
+                label: 'delivery', value: 'manager@example.com failed'),
             OutlinedButton.icon(
               key: const Key('retryReportDeliveryButton'),
               onPressed: () {},
@@ -2313,10 +2577,12 @@ class WorkerReportsPage extends StatelessWidget {
             const _StatusTile(label: '表示範囲', value: '過去90日分'),
             Card(
               child: ListTile(
-                onTap: () => Navigator.pushNamed(context, '/worker/reports/report-1'),
+                onTap: () =>
+                    Navigator.pushNamed(context, '/worker/reports/report-1'),
                 leading: const Icon(Icons.description_outlined),
                 title: const Text('AM_START / 2026/07/07 09:05'),
-                subtitle: const Text('送信先: Supporter One / 送信状態: failed / 相談あり'),
+                subtitle:
+                    const Text('送信先: Supporter One / 送信状態: failed / 相談あり'),
                 trailing: const Icon(Icons.chevron_right),
               ),
             ),
@@ -2469,11 +2735,15 @@ class _ManagerReportListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        onTap: () => Navigator.pushNamed(context, '/manager/reports/${report.id}'),
-        leading: Icon(report.hasConsultation ? Icons.forum_outlined : Icons.description_outlined),
+        onTap: () =>
+            Navigator.pushNamed(context, '/manager/reports/${report.id}'),
+        leading: Icon(report.hasConsultation
+            ? Icons.forum_outlined
+            : Icons.description_outlined),
         title: Text(report.workerName),
-        subtitle: Text('${report.type} / ${report.submittedAt} / ${report.status}'
-            '${report.hasConsultation ? ' / 相談あり' : ''}'),
+        subtitle:
+            Text('${report.type} / ${report.submittedAt} / ${report.status}'
+                '${report.hasConsultation ? ' / 相談あり' : ''}'),
         trailing: const Icon(Icons.chevron_right),
       ),
     );
@@ -2515,7 +2785,8 @@ class _AdminNavigationRow extends StatelessWidget {
           label: const Text('監査ログ'),
         ),
         OutlinedButton.icon(
-          onPressed: () => Navigator.pushNamed(context, '/admin/mode-switch-requests'),
+          onPressed: () =>
+              Navigator.pushNamed(context, '/admin/mode-switch-requests'),
           icon: const Icon(Icons.sync_alt),
           label: const Text('モード切替申請'),
         ),
@@ -2538,7 +2809,8 @@ class _ScheduleTile extends StatelessWidget {
     return Card(
       child: ListTile(
         onTap: onTap,
-        leading: Icon(schedule.isCustom ? Icons.notifications_active : Icons.schedule),
+        leading: Icon(
+            schedule.isCustom ? Icons.notifications_active : Icons.schedule),
         title: Text(schedule.title),
         subtitle: Text('${schedule.time} / ${schedule.weekdays}'),
         trailing: const Icon(Icons.chevron_right),
@@ -2609,7 +2881,8 @@ class _ModeSwitchPanel extends StatelessWidget {
             const Text('支援員や上司と報告を共有したい場合は、報告支援モードへ切り替えできます。'),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/notification/mode-switch'),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/notification/mode-switch'),
               icon: const Icon(Icons.sync_alt),
               label: const Text('報告支援モードへ切り替え'),
             ),
@@ -2634,10 +2907,12 @@ class PrivacyPolicyPage extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           children: const [
             _SectionTitle('利用目的'),
-            Text('ホウレンチェックは、報告タイミングの通知、報告文作成支援、報連相支援、一般就労移行および定着支援のために必要な情報を扱います。診断支援、医療情報管理、勤怠管理、人事評価を目的としません。'),
+            Text(
+                'ホウレンチェックは、報告タイミングの通知、報告文作成支援、報連相支援、一般就労移行および定着支援のために必要な情報を扱います。診断支援、医療情報管理、勤怠管理、人事評価を目的としません。'),
             SizedBox(height: 16),
             _SectionTitle('保存期間'),
-            Text('通知イベントと通知ログは30日、報告本文と送信履歴は180日を目安に削除または匿名化します。監査ログは不正防止と説明責任のため保存し、本文の閲覧理由を記録します。'),
+            Text(
+                '通知イベントと通知ログは30日、報告本文と送信履歴は180日を目安に削除または匿名化します。監査ログは不正防止と説明責任のため保存し、本文の閲覧理由を記録します。'),
             SizedBox(height: 16),
             _SectionTitle('問い合わせ窓口'),
             Text('問い合わせ窓口: support@example.com'),
@@ -2665,10 +2940,12 @@ class TermsOfServicePage extends StatelessWidget {
             Text('本サービスは報連相支援ツールです。勤怠管理、給与管理、人事評価、医療情報管理、障害情報管理、診断支援には使用しません。'),
             SizedBox(height: 16),
             _SectionTitle('入力時の注意'),
-            Text('報告本文および相談内容には、業務報告に不要なセンシティブ情報を入力しないでください。体調、診断名、家庭事情などは必要最小限にしてください。'),
+            Text(
+                '報告本文および相談内容には、業務報告に不要なセンシティブ情報を入力しないでください。体調、診断名、家庭事情などは必要最小限にしてください。'),
             SizedBox(height: 16),
             _SectionTitle('通知とメール'),
-            Text('通知やメールの不達、遅延、端末設定による未着について、サービスは完全な到達を保証しません。重要な連絡は必要に応じて別手段でも確認してください。'),
+            Text(
+                '通知やメールの不達、遅延、端末設定による未着について、サービスは完全な到達を保証しません。重要な連絡は必要に応じて別手段でも確認してください。'),
           ],
         ),
       ),
@@ -2695,13 +2972,15 @@ class _SensitiveInfoNotice extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            const Text('健康情報、障害情報、家庭事情など、業務報告に不要なセンシティブ情報は入力しないでください。この報告は報連相支援のために使い、人事評価や勤怠管理には使用しません。'),
+            const Text(
+                '健康情報、障害情報、家庭事情など、業務報告に不要なセンシティブ情報は入力しないでください。この報告は報連相支援のために使い、人事評価や勤怠管理には使用しません。'),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               children: [
                 TextButton(
-                  onPressed: () => Navigator.pushNamed(context, '/legal/privacy'),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/legal/privacy'),
                   child: const Text('プライバシー'),
                 ),
                 TextButton(
