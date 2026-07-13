@@ -304,36 +304,40 @@ PreferredSizeWidget _breadcrumbAppBar(
   String homeRoute = '/notification/home',
 }) {
   return AppBar(
-    toolbarHeight: 72,
+    toolbarHeight: 88,
+    automaticallyImplyLeading: false,
+    centerTitle: false,
+    titleSpacing: 16,
     title: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(title),
-        const SizedBox(height: 4),
-        Text(
-          breadcrumbs.join(' > '),
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                context,
+                homeRoute,
+                (route) => false,
               ),
+              child: const Text('ホーム'),
+            ),
+            Flexible(
+              child: Text(
+                breadcrumbs.join(' > '),
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          ],
         ),
+        const SizedBox(height: 4),
+        Text(title),
       ],
     ),
-    actions: [
-      Padding(
-        padding: const EdgeInsets.only(right: 12),
-        child: TextButton.icon(
-          onPressed: () => Navigator.pushNamedAndRemoveUntil(
-            context,
-            homeRoute,
-            (route) => false,
-          ),
-          icon: const Icon(Icons.home_outlined),
-          label: const Text('ホーム'),
-        ),
-      ),
-    ],
   );
 }
 
