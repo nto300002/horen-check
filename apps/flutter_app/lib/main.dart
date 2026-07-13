@@ -297,6 +297,46 @@ MaterialPageRoute<void> _pageRoute(RouteSettings settings, Widget page) {
   );
 }
 
+PreferredSizeWidget _breadcrumbAppBar(
+  BuildContext context, {
+  required String title,
+  required List<String> breadcrumbs,
+  String homeRoute = '/notification/home',
+}) {
+  return AppBar(
+    toolbarHeight: 72,
+    title: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(title),
+        const SizedBox(height: 4),
+        Text(
+          breadcrumbs.join(' > '),
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    ),
+    actions: [
+      Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: TextButton.icon(
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            homeRoute,
+            (route) => false,
+          ),
+          icon: const Icon(Icons.home_outlined),
+          label: const Text('ホーム'),
+        ),
+      ),
+    ],
+  );
+}
+
 class NotificationSchedule {
   const NotificationSchedule({
     required this.id,
@@ -1243,8 +1283,10 @@ class ModeSwitchRequestPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('報告支援モード切り替え申請'),
+      appBar: _breadcrumbAppBar(
+        context,
+        title: '報告支援モード切り替え申請',
+        breadcrumbs: const ['通知モードホーム', '報告支援モード切り替え申請'],
       ),
       body: SafeArea(
         child: ListView(
@@ -1305,8 +1347,10 @@ class ModeSwitchPendingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('切り替え申請中'),
+      appBar: _breadcrumbAppBar(
+        context,
+        title: '切り替え申請中',
+        breadcrumbs: const ['通知モードホーム', '報告支援モード切り替え申請', '申請中'],
       ),
       body: SafeArea(
         child: ListView(
@@ -1339,8 +1383,10 @@ class ModeSwitchRejectedPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final rejected = modeSwitchRequests.last;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('切り替え申請却下'),
+      appBar: _breadcrumbAppBar(
+        context,
+        title: '切り替え申請却下',
+        breadcrumbs: const ['通知モードホーム', '報告支援モード切り替え申請', '却下'],
       ),
       body: SafeArea(
         child: ListView(

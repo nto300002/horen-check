@@ -362,14 +362,32 @@ void main() {
         const HorenCheckApp(initialRoute: '/notification/mode-switch'));
 
     expect(find.text('報告支援モード切り替え申請'), findsOneWidget);
+    expect(
+      find.text('通知モードホーム > 報告支援モード切り替え申請'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(TextButton, 'ホーム'), findsOneWidget);
     expect(find.text('支援員メールアドレス'), findsOneWidget);
     expect(find.text('希望する就労状況'), findsOneWidget);
     expect(find.text('メッセージ'), findsOneWidget);
     expect(find.text('AM/PM通知を報告スケジュールへ移行'), findsOneWidget);
 
+    await tester.tap(find.widgetWithText(TextButton, 'ホーム'));
+    await tester.pumpAndSettle();
+    expect(find.text('通知モードホーム'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/notification/mode-switch',
+    ));
+
     await tester.tap(find.text('申請する'));
     await tester.pumpAndSettle();
     expect(find.text('切り替え申請中'), findsOneWidget);
+    expect(
+      find.text('通知モードホーム > 報告支援モード切り替え申請 > 申請中'),
+      findsOneWidget,
+    );
     expect(find.text('申請中'), findsOneWidget);
     expect(find.text('申請中は新規申請できません'), findsOneWidget);
     expect(find.text('申請を取り消して再申請'), findsOneWidget);
@@ -379,6 +397,10 @@ void main() {
       initialRoute: '/notification/mode-switch/rejected',
     ));
     expect(find.text('切り替え申請却下'), findsOneWidget);
+    expect(
+      find.text('通知モードホーム > 報告支援モード切り替え申請 > 却下'),
+      findsOneWidget,
+    );
     expect(find.textContaining('担当者確認後に再申請してください'), findsOneWidget);
     expect(find.text('再申請する'), findsOneWidget);
   });
