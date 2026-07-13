@@ -301,7 +301,6 @@ PreferredSizeWidget _breadcrumbAppBar(
   BuildContext context, {
   required String title,
   required List<String> breadcrumbs,
-  String homeRoute = '/notification/home',
 }) {
   return AppBar(
     toolbarHeight: 88,
@@ -312,32 +311,30 @@ PreferredSizeWidget _breadcrumbAppBar(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                context,
-                homeRoute,
-                (route) => false,
+        Text(
+          breadcrumbs.join(' > '),
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-              child: const Text('ホーム'),
-            ),
-            Flexible(
-              child: Text(
-                breadcrumbs.join(' > '),
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-            ),
-          ],
         ),
         const SizedBox(height: 4),
         Text(title),
       ],
     ),
+    actions: [
+      Padding(
+        padding: const EdgeInsets.only(right: 16),
+        child: TextButton(
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/',
+            (route) => false,
+          ),
+          child: const Text('ログアウト'),
+        ),
+      ),
+    ],
   );
 }
 

@@ -366,15 +366,16 @@ void main() {
       find.text('通知モードホーム > 報告支援モード切り替え申請'),
       findsOneWidget,
     );
-    expect(find.widgetWithText(TextButton, 'ホーム'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'ホーム'), findsNothing);
+    expect(find.widgetWithText(TextButton, 'ログアウト'), findsOneWidget);
     expect(find.text('支援員メールアドレス'), findsOneWidget);
     expect(find.text('希望する就労状況'), findsOneWidget);
     expect(find.text('メッセージ'), findsOneWidget);
     expect(find.text('AM/PM通知を報告スケジュールへ移行'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(TextButton, 'ホーム'));
+    await tester.tap(find.widgetWithText(TextButton, 'ログアウト'));
     await tester.pumpAndSettle();
-    expect(find.text('通知モードホーム'), findsOneWidget);
+    expect(find.text('通知モード新規登録'), findsOneWidget);
 
     await tester.pumpWidget(HorenCheckApp(
       key: UniqueKey(),
