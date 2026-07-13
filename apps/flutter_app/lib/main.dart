@@ -321,27 +321,36 @@ PreferredSizeWidget _commonAppBar(
             ValueListenableBuilder<String?>(
               valueListenable: signedInUserName,
               builder: (context, userName, _) {
-                return Text(
-                  'アカウント: ${currentAccountName(context, userName)}',
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
+                final showLogout = shouldShowLogout(context, userName);
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'アカウント: ${currentAccountName(context, userName)}',
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    if (showLogout) ...[
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () {
+                          signedInUserName.value = null;
+                          Navigator.pushNamedAndRemoveUntil(
+                            context,
+                            '/',
+                            (route) => false,
+                          );
+                        },
+                        child: const Text('ログアウト'),
                       ),
+                    ],
+                  ],
                 );
               },
-            ),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: () {
-                signedInUserName.value = null;
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/',
-                  (route) => false,
-                );
-              },
-              child: const Text('ログアウト'),
             ),
           ],
         ),
@@ -389,6 +398,15 @@ String currentAccountName(BuildContext context, String? signedInName) {
     return 'Supporter One';
   }
   return 'Worker One';
+}
+
+bool shouldShowLogout(BuildContext context, String? signedInName) {
+  if (signedInName != null && signedInName.trim().isNotEmpty) {
+    return true;
+  }
+
+  final routeName = ModalRoute.of(context)?.settings.name ?? '';
+  return routeName != '/';
 }
 
 class BreadcrumbItem {
