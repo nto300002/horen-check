@@ -2,6 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:horen_check/main.dart';
 
+class RecordingRegistrationClient implements RegistrationClient {
+  String? name;
+  String? email;
+  String? password;
+
+  @override
+  Future<void> registerNotificationMode({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    this.name = name;
+    this.email = email;
+    this.password = password;
+  }
+}
+
 void main() {
   testWidgets('renders notification mode registration flow', (tester) async {
     await tester.pumpWidget(const HorenCheckApp());
@@ -18,8 +35,29 @@ void main() {
     expect(find.text('通知モードホーム'), findsOneWidget);
   });
 
-  testWidgets('renders notification home with today and next notifications', (tester) async {
-    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/notification/home'));
+  testWidgets('register button calls API client and opens notification home',
+      (tester) async {
+    final registrationClient = RecordingRegistrationClient();
+    await tester
+        .pumpWidget(HorenCheckApp(registrationClient: registrationClient));
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'Worker One');
+    await tester.enterText(fields.at(1), 'worker@example.com');
+    await tester.enterText(fields.at(2), 'Password!1');
+    await tester.tap(find.widgetWithText(FilledButton, '登録する'));
+    await tester.pumpAndSettle();
+
+    expect(registrationClient.name, 'Worker One');
+    expect(registrationClient.email, 'worker@example.com');
+    expect(registrationClient.password, 'Password!1');
+    expect(find.text('通知モードホーム'), findsOneWidget);
+  });
+
+  testWidgets('renders notification home with today and next notifications',
+      (tester) async {
+    await tester
+        .pumpWidget(const HorenCheckApp(initialRoute: '/notification/home'));
 
     expect(find.text('通知モードホーム'), findsOneWidget);
     expect(find.text('次の通知'), findsOneWidget);
@@ -43,8 +81,11 @@ void main() {
     expect(find.textContaining('支援員や上司と報告を共有'), findsOneWidget);
   });
 
-  testWidgets('navigates from home to custom creation, schedules, logs, and settings', (tester) async {
-    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/notification/home'));
+  testWidgets(
+      'navigates from home to custom creation, schedules, logs, and settings',
+      (tester) async {
+    await tester
+        .pumpWidget(const HorenCheckApp(initialRoute: '/notification/home'));
 
     await tester.scrollUntilVisible(
       find.text('CUSTOM通知を作成'),
@@ -85,8 +126,10 @@ void main() {
     expect(find.text('メールフォールバック'), findsOneWidget);
   });
 
-  testWidgets('opens schedule edit screens from schedules page', (tester) async {
-    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/notification/schedules'));
+  testWidgets('opens schedule edit screens from schedules page',
+      (tester) async {
+    await tester.pumpWidget(
+        const HorenCheckApp(initialRoute: '/notification/schedules'));
 
     await tester.tap(find.text('AM開始報告の時間です'));
     await tester.pumpAndSettle();
@@ -104,7 +147,8 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, '削除'), findsOneWidget);
   });
 
-  testWidgets('renders admin users, invitations, roles, and assignments routes', (tester) async {
+  testWidgets('renders admin users, invitations, roles, and assignments routes',
+      (tester) async {
     await tester.pumpWidget(const HorenCheckApp(initialRoute: '/admin/users'));
 
     expect(find.text('ユーザー管理'), findsWidgets);
@@ -141,7 +185,9 @@ void main() {
     expect(find.textContaining('active=false'), findsOneWidget);
   });
 
-  testWidgets('renders manager report review without body in list and body in detail', (tester) async {
+  testWidgets(
+      'renders manager report review without body in list and body in detail',
+      (tester) async {
     await tester.pumpWidget(const HorenCheckApp(initialRoute: '/manager/home'));
 
     expect(find.text('managerホーム'), findsOneWidget);
@@ -179,8 +225,10 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, '完了にする'), findsOneWidget);
   });
 
-  testWidgets('renders supporter worker list and last 90 days report body', (tester) async {
-    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/supporter/workers'));
+  testWidgets('renders supporter worker list and last 90 days report body',
+      (tester) async {
+    await tester
+        .pumpWidget(const HorenCheckApp(initialRoute: '/supporter/workers'));
 
     expect(find.text('担当worker一覧'), findsOneWidget);
     expect(find.text('Worker One'), findsOneWidget);
@@ -209,7 +257,8 @@ void main() {
   });
 
   testWidgets('renders worker consultation thread routes', (tester) async {
-    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/worker/consultations'));
+    await tester
+        .pumpWidget(const HorenCheckApp(initialRoute: '/worker/consultations'));
 
     expect(find.text('相談スレッド一覧'), findsOneWidget);
     expect(find.textContaining('open / AM_START'), findsOneWidget);
@@ -228,11 +277,13 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, '完了にする'), findsOneWidget);
   });
 
-  testWidgets('renders employment transition request and review routes', (tester) async {
-    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/worker/employment-transition/request'));
+  testWidgets('renders employment transition request and review routes',
+      (tester) async {
+    await tester.pumpWidget(const HorenCheckApp(
+        initialRoute: '/worker/employment-transition/request'));
 
     expect(find.text('一般就労移行希望申請'), findsOneWidget);
-    expect(find.text('希望employmentContext'), findsOneWidget);
+    expect(find.text('希望する就労状況'), findsOneWidget);
     expect(find.text('メッセージ'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, '申請する'), findsOneWidget);
 
@@ -241,7 +292,7 @@ void main() {
       initialRoute: '/worker/employment-transition/pending',
     ));
     expect(find.text('移行申請中'), findsOneWidget);
-    expect(find.textContaining('general_employment / pending'), findsOneWidget);
+    expect(find.textContaining('一般就労 / 申請中'), findsOneWidget);
 
     await tester.pumpWidget(HorenCheckApp(
       key: UniqueKey(),
@@ -283,8 +334,10 @@ void main() {
     expect(find.textContaining('active / Worker One'), findsOneWidget);
   });
 
-  testWidgets('renders admin audit logs and reason-gated report body view', (tester) async {
-    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/admin/audit-logs'));
+  testWidgets('renders admin audit logs and reason-gated report body view',
+      (tester) async {
+    await tester
+        .pumpWidget(const HorenCheckApp(initialRoute: '/admin/audit-logs'));
 
     expect(find.text('監査ログ'), findsWidgets);
     expect(find.text('report_viewed'), findsOneWidget);
@@ -302,20 +355,42 @@ void main() {
     expect(find.text('report_viewed'), findsOneWidget);
   });
 
-  testWidgets('renders notification mode switch request, pending, and rejected flows', (tester) async {
-    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/notification/mode-switch'));
+  testWidgets(
+      'renders notification mode switch request, pending, and rejected flows',
+      (tester) async {
+    await tester.pumpWidget(
+        const HorenCheckApp(initialRoute: '/notification/mode-switch'));
 
     expect(find.text('報告支援モード切り替え申請'), findsOneWidget);
+    expect(
+      find.text('通知モードホーム > 報告支援モード切り替え申請'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(TextButton, 'ホーム'), findsNothing);
+    expect(find.widgetWithText(TextButton, 'ログアウト'), findsOneWidget);
     expect(find.text('支援員メールアドレス'), findsOneWidget);
-    expect(find.text('希望employmentContext'), findsOneWidget);
+    expect(find.text('希望する就労状況'), findsOneWidget);
     expect(find.text('メッセージ'), findsOneWidget);
     expect(find.text('AM/PM通知を報告スケジュールへ移行'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'ログアウト'));
+    await tester.pumpAndSettle();
+    expect(find.text('通知モード新規登録'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/notification/mode-switch',
+    ));
 
     await tester.tap(find.text('申請する'));
     await tester.pumpAndSettle();
     expect(find.text('切り替え申請中'), findsOneWidget);
-    expect(find.text('pending'), findsOneWidget);
-    expect(find.text('pending申請中は新規申請できません'), findsOneWidget);
+    expect(
+      find.text('通知モードホーム > 報告支援モード切り替え申請 > 申請中'),
+      findsOneWidget,
+    );
+    expect(find.text('申請中'), findsOneWidget);
+    expect(find.text('申請中は新規申請できません'), findsOneWidget);
     expect(find.text('申請を取り消して再申請'), findsOneWidget);
 
     await tester.pumpWidget(HorenCheckApp(
@@ -323,28 +398,34 @@ void main() {
       initialRoute: '/notification/mode-switch/rejected',
     ));
     expect(find.text('切り替え申請却下'), findsOneWidget);
+    expect(
+      find.text('通知モードホーム > 報告支援モード切り替え申請 > 却下'),
+      findsOneWidget,
+    );
     expect(find.textContaining('担当者確認後に再申請してください'), findsOneWidget);
     expect(find.text('再申請する'), findsOneWidget);
   });
 
-  testWidgets('renders supporter and admin mode switch review screens', (tester) async {
-    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/supporter/mode-switch-requests'));
+  testWidgets('renders supporter and admin mode switch review screens',
+      (tester) async {
+    await tester.pumpWidget(
+        const HorenCheckApp(initialRoute: '/supporter/mode-switch-requests'));
 
     expect(find.text('モード切替申請一覧'), findsOneWidget);
     expect(find.text('Worker One'), findsOneWidget);
-    expect(find.textContaining('supported_facility / pending'), findsOneWidget);
+    expect(find.textContaining('福祉施設内就労 / 申請中'), findsOneWidget);
 
     await tester.tap(find.text('Worker One'));
     await tester.pumpAndSettle();
     expect(find.text('モード切替申請詳細'), findsOneWidget);
-    expect(find.text('managerId'), findsOneWidget);
-    expect(find.text('supporterId'), findsOneWidget);
+    expect(find.text('上司ID'), findsOneWidget);
+    expect(find.text('支援員ID'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('convert_am_pm'),
+      find.text('AM/PM通知を報告スケジュールへ移行'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('convert_am_pm'), findsOneWidget);
+    expect(find.text('AM/PM通知を報告スケジュールへ移行'), findsOneWidget);
     expect(find.text('承認してworkerSettings/assignmentsを作成'), findsOneWidget);
     expect(find.text('却下する'), findsOneWidget);
 
@@ -357,7 +438,8 @@ void main() {
     expect(find.text('Worker Two'), findsOneWidget);
   });
 
-  testWidgets('renders worker AM_START report creation and retry affordance', (tester) async {
+  testWidgets('renders worker AM_START report creation and retry affordance',
+      (tester) async {
     await tester.pumpWidget(
       const HorenCheckApp(initialRoute: '/worker/today/report/event-1'),
     );
@@ -365,6 +447,8 @@ void main() {
     expect(find.text('AM_START報告'), findsOneWidget);
     expect(find.text('対象イベント'), findsOneWidget);
     expect(find.text('event-1'), findsOneWidget);
+    expect(find.textContaining('健康情報、障害情報、家庭事情など'), findsOneWidget);
+    expect(find.textContaining('人事評価や勤怠管理には使用しません'), findsOneWidget);
     expect(find.text('今日やること'), findsOneWidget);
     expect(find.text('相談事項'), findsOneWidget);
     expect(find.text('自由入力'), findsOneWidget);
@@ -378,7 +462,7 @@ void main() {
     expect(find.textContaining('本日は在庫確認に取り組みます。'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('送信先確認').first,
+      find.text('送信先確認'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
@@ -396,7 +480,26 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, '再送'), findsOneWidget);
   });
 
-  testWidgets('renders worker AM_END, PM_START, and PM_END report fields', (tester) async {
+  testWidgets('renders legal and privacy guidance routes', (tester) async {
+    await tester
+        .pumpWidget(const HorenCheckApp(initialRoute: '/legal/privacy'));
+
+    expect(find.text('プライバシーポリシー'), findsOneWidget);
+    expect(
+        find.textContaining('診断支援、医療情報管理、勤怠管理、人事評価を目的としません'), findsOneWidget);
+    expect(find.text('問い合わせ窓口: support@example.com'), findsOneWidget);
+
+    await tester.pumpWidget(HorenCheckApp(
+      key: UniqueKey(),
+      initialRoute: '/legal/terms',
+    ));
+    expect(find.text('利用規約'), findsOneWidget);
+    expect(find.textContaining('通知やメールの不達、遅延、端末設定による未着について'), findsOneWidget);
+    expect(find.textContaining('業務報告に不要なセンシティブ情報'), findsOneWidget);
+  });
+
+  testWidgets('renders worker AM_END, PM_START, and PM_END report fields',
+      (tester) async {
     const cases = [
       ('AM_END', '午前にできたこと', '午前は在庫確認まで完了しました。'),
       ('PM_START', '午後にやること', '午後は商品登録に取り組みます。'),
@@ -423,8 +526,11 @@ void main() {
     }
   });
 
-  testWidgets('renders worker report history, detail, correction, and retry routes', (tester) async {
-    await tester.pumpWidget(const HorenCheckApp(initialRoute: '/worker/reports'));
+  testWidgets(
+      'renders worker report history, detail, correction, and retry routes',
+      (tester) async {
+    await tester
+        .pumpWidget(const HorenCheckApp(initialRoute: '/worker/reports'));
 
     expect(find.text('報告履歴'), findsOneWidget);
     expect(find.text('過去90日分'), findsOneWidget);

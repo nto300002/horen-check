@@ -100,6 +100,20 @@ test("skips disabled, deleted, and non-weekday schedules during daily generation
   assert.deepEqual(events, []);
 });
 
+test("skips schedules for inactive users during daily generation", () => {
+  const events = generateDailyNotificationEventDocuments({
+    schedules: [
+      schedule({ id: "active-worker", userId: "active-worker" }),
+      schedule({ id: "inactive-worker", userId: "inactive-worker" })
+    ],
+    existingEvents: [],
+    activeUserIds: new Set(["active-worker"]),
+    targetDate: new Date("2026-07-07T00:00:00.000Z")
+  });
+
+  assert.deepEqual(events.map((created) => created.userId), ["active-worker"]);
+});
+
 test("sends due reminders every interval and marks event notified at repeat limit", async () => {
   const sentPushes = [];
   const result = await sendDueNotificationReminders({

@@ -21,6 +21,7 @@ export class NotificationEventError extends Error {
 export interface GenerateDailyNotificationEventsInput {
   schedules: NotificationScheduleDocument[];
   existingEvents: NotificationEventDocument[];
+  activeUserIds?: Set<string>;
   targetDate: Date;
 }
 
@@ -102,6 +103,10 @@ function shouldGenerate(schedule: NotificationScheduleDocument, targetDate: Date
     && schedule.dayOfWeek.includes(targetDate.getUTCDay());
 }
 
+function isActiveUser(schedule: NotificationScheduleDocument, activeUserIds?: Set<string>): boolean {
+  return activeUserIds === undefined || activeUserIds.has(schedule.userId);
+}
+
 export function generateDailyNotificationEventDocuments(
   input: GenerateDailyNotificationEventsInput,
   now = new Date()
@@ -111,6 +116,7 @@ export function generateDailyNotificationEventDocuments(
 
   return input.schedules
     .filter((schedule) => shouldGenerate(schedule, input.targetDate))
+    .filter((schedule) => isActiveUser(schedule, input.activeUserIds))
     .map((schedule) => ({
       id: `${schedule.id}_${dateId}`,
       scheduleId: schedule.id,

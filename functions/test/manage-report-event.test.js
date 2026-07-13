@@ -126,6 +126,24 @@ test("skips disabled, non-weekday, and missing-settings schedules", () => {
   assert.deepEqual(events, []);
 });
 
+test("skips report schedules for inactive workers during daily generation", () => {
+  const events = generateDailyReportEventDocuments({
+    schedules: [
+      schedule({ id: "active-worker_AM_START", workerId: "active-worker" }),
+      schedule({ id: "inactive-worker_AM_START", workerId: "inactive-worker" })
+    ],
+    existingEvents: [],
+    workerSettingsByWorkerId: {
+      "active-worker": workerSettings({ userId: "active-worker" }),
+      "inactive-worker": workerSettings({ userId: "inactive-worker" })
+    },
+    activeUserIds: new Set(["active-worker"]),
+    targetDate: new Date("2026-07-07T00:00:00.000Z")
+  });
+
+  assert.deepEqual(events.map((created) => created.workerId), ["active-worker"]);
+});
+
 test("sends due AM/PM push reminders with safe body, type title, and report click route", async () => {
   const sentPushes = [];
   const result = await sendDueReportReminders({

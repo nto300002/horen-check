@@ -269,13 +269,16 @@ export const api = onRequest(async (request, response) => {
       const targetDate = request.body?.targetDate === undefined
         ? new Date()
         : new Date(String(request.body.targetDate));
-      const [schedulesSnapshot, eventsSnapshot] = await Promise.all([
+      const [schedulesSnapshot, eventsSnapshot, usersSnapshot] = await Promise.all([
         db.collection("notificationSchedules").get(),
-        db.collection("notificationEvents").get()
+        db.collection("notificationEvents").get(),
+        db.collection("users").where("active", "==", true).get()
       ]);
+      const activeUserIds = new Set(usersSnapshot.docs.map((doc) => normalizeUser(doc.data()).id));
       const events = generateDailyNotificationEventDocuments({
         schedules: schedulesSnapshot.docs.map((doc) => normalizeSchedule(doc.data())),
         existingEvents: eventsSnapshot.docs.map((doc) => normalizeEvent(doc.data())),
+        activeUserIds,
         targetDate
       });
 
@@ -588,11 +591,13 @@ export const api = onRequest(async (request, response) => {
       const targetDate = request.body?.targetDate === undefined
         ? new Date()
         : new Date(String(request.body.targetDate));
-      const [schedulesSnapshot, eventsSnapshot, workerSettingsSnapshot] = await Promise.all([
+      const [schedulesSnapshot, eventsSnapshot, workerSettingsSnapshot, usersSnapshot] = await Promise.all([
         db.collection("reportSchedules").get(),
         db.collection("reportEvents").get(),
-        db.collection("workerSettings").get()
+        db.collection("workerSettings").get(),
+        db.collection("users").where("active", "==", true).get()
       ]);
+      const activeUserIds = new Set(usersSnapshot.docs.map((doc) => normalizeUser(doc.data()).id));
       const workerSettingsByWorkerId = Object.fromEntries(
         workerSettingsSnapshot.docs.map((doc) => {
           const settings = normalizeWorkerSettings(doc.data());
@@ -603,6 +608,7 @@ export const api = onRequest(async (request, response) => {
         schedules: schedulesSnapshot.docs.map((doc) => normalizeReportSchedule(doc.data())),
         existingEvents: eventsSnapshot.docs.map((doc) => normalizeReportEvent(doc.data())),
         workerSettingsByWorkerId,
+        activeUserIds,
         targetDate
       });
 
