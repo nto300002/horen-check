@@ -8,6 +8,8 @@ void main() {
   runApp(const ProviderScope(child: HorenCheckApp()));
 }
 
+final ValueNotifier<String?> signedInUserName = ValueNotifier<String?>(null);
+
 class HorenCheckApp extends StatelessWidget {
   const HorenCheckApp({
     super.key,
@@ -316,21 +318,29 @@ PreferredSizeWidget _commonAppBar(
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'アカウント: ${currentAccountName(context)}',
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
+            ValueListenableBuilder<String?>(
+              valueListenable: signedInUserName,
+              builder: (context, userName, _) {
+                return Text(
+                  'アカウント: ${currentAccountName(context, userName)}',
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                );
+              },
             ),
             const SizedBox(width: 8),
             TextButton(
-              onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                context,
-                '/',
-                (route) => false,
-              ),
+              onPressed: () {
+                signedInUserName.value = null;
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (route) => false,
+                );
+              },
               child: const Text('ログアウト'),
             ),
           ],
@@ -360,7 +370,11 @@ PreferredSizeWidget _breadcrumbAppBar(
   );
 }
 
-String currentAccountName(BuildContext context) {
+String currentAccountName(BuildContext context, String? signedInName) {
+  if (signedInName != null && signedInName.trim().isNotEmpty) {
+    return signedInName.trim();
+  }
+
   final routeName = ModalRoute.of(context)?.settings.name ?? '';
   if (routeName == '/') {
     return 'ゲスト';
@@ -986,6 +1000,7 @@ class _RegistrationFormState extends State<_RegistrationForm> {
         email: email,
         password: password,
       );
+      signedInUserName.value = name;
       if (!mounted) {
         return;
       }

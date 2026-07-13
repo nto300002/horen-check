@@ -20,6 +20,10 @@ class RecordingRegistrationClient implements RegistrationClient {
 }
 
 void main() {
+  setUp(() {
+    signedInUserName.value = null;
+  });
+
   testWidgets('renders notification mode registration flow', (tester) async {
     await tester.pumpWidget(const HorenCheckApp());
 
@@ -42,16 +46,22 @@ void main() {
         .pumpWidget(HorenCheckApp(registrationClient: registrationClient));
 
     final fields = find.byType(TextField);
-    await tester.enterText(fields.at(0), 'Worker One');
+    await tester.enterText(fields.at(0), '山田太郎');
     await tester.enterText(fields.at(1), 'worker@example.com');
     await tester.enterText(fields.at(2), 'Password!1');
     await tester.tap(find.widgetWithText(FilledButton, '登録する'));
     await tester.pumpAndSettle();
 
-    expect(registrationClient.name, 'Worker One');
+    expect(registrationClient.name, '山田太郎');
     expect(registrationClient.email, 'worker@example.com');
     expect(registrationClient.password, 'Password!1');
     expect(find.text('通知モードホーム'), findsOneWidget);
+    expect(find.text('アカウント: 山田太郎'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, 'ログアウト'));
+    await tester.pumpAndSettle();
+    expect(find.text('通知モード新規登録'), findsOneWidget);
+    expect(signedInUserName.value, isNull);
   });
 
   testWidgets('renders notification home with today and next notifications',
