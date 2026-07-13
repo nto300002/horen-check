@@ -321,6 +321,10 @@ PreferredSizeWidget _commonAppBar(
             ValueListenableBuilder<String?>(
               valueListenable: signedInUserName,
               builder: (context, userName, _) {
+                if (!shouldShowAccountHeader(context, userName)) {
+                  return const SizedBox.shrink();
+                }
+
                 final showLogout = shouldShowLogout(context, userName);
                 return Row(
                   mainAxisSize: MainAxisSize.min,
@@ -398,6 +402,15 @@ String currentAccountName(BuildContext context, String? signedInName) {
     return 'Supporter One';
   }
   return 'Worker One';
+}
+
+bool shouldShowAccountHeader(BuildContext context, String? signedInName) {
+  if (signedInName != null && signedInName.trim().isNotEmpty) {
+    return true;
+  }
+
+  final routeName = ModalRoute.of(context)?.settings.name ?? '';
+  return routeName != '/';
 }
 
 bool shouldShowLogout(BuildContext context, String? signedInName) {

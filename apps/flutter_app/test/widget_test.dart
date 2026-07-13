@@ -28,7 +28,7 @@ void main() {
     await tester.pumpWidget(const HorenCheckApp());
 
     expect(find.text('ホウレンチェック'), findsOneWidget);
-    expect(find.text('アカウント: ゲスト'), findsOneWidget);
+    expect(find.text('アカウント: ゲスト'), findsNothing);
     expect(find.widgetWithText(TextButton, 'ログアウト'), findsNothing);
     expect(find.text('通知モード新規登録'), findsOneWidget);
     expect(find.text('まずは自分だけで通知を使えます。'), findsOneWidget);
@@ -63,7 +63,7 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'ログアウト'));
     await tester.pumpAndSettle();
     expect(find.text('通知モード新規登録'), findsOneWidget);
-    expect(find.text('アカウント: ゲスト'), findsOneWidget);
+    expect(find.text('アカウント: ゲスト'), findsNothing);
     expect(find.widgetWithText(TextButton, 'ログアウト'), findsNothing);
     expect(signedInUserName.value, isNull);
   });
