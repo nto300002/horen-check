@@ -300,7 +300,7 @@ MaterialPageRoute<void> _pageRoute(RouteSettings settings, Widget page) {
 PreferredSizeWidget _breadcrumbAppBar(
   BuildContext context, {
   required String title,
-  required List<String> breadcrumbs,
+  required List<BreadcrumbItem> breadcrumbs,
 }) {
   return AppBar(
     toolbarHeight: 88,
@@ -311,13 +311,7 @@ PreferredSizeWidget _breadcrumbAppBar(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          breadcrumbs.join(' > '),
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-        ),
+        _BreadcrumbTrail(items: breadcrumbs),
         const SizedBox(height: 4),
         Text(title),
       ],
@@ -336,6 +330,122 @@ PreferredSizeWidget _breadcrumbAppBar(
       ),
     ],
   );
+}
+
+class BreadcrumbItem {
+  const BreadcrumbItem({
+    required this.label,
+    this.routeName,
+  });
+
+  final String label;
+  final String? routeName;
+}
+
+class _BreadcrumbTrail extends StatelessWidget {
+  const _BreadcrumbTrail({
+    required this.items,
+  });
+
+  final List<BreadcrumbItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textStyle = Theme.of(context).textTheme.bodySmall;
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var index = 0; index < items.length; index++) ...[
+            _BreadcrumbSegment(
+              item: items[index],
+              style: textStyle,
+            ),
+            if (index < items.length - 1)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  '>',
+                  style: textStyle?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _BreadcrumbSegment extends StatefulWidget {
+  const _BreadcrumbSegment({
+    required this.item,
+    required this.style,
+  });
+
+  final BreadcrumbItem item;
+  final TextStyle? style;
+
+  @override
+  State<_BreadcrumbSegment> createState() => _BreadcrumbSegmentState();
+}
+
+class _BreadcrumbSegmentState extends State<_BreadcrumbSegment> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final routeName = widget.item.routeName;
+    final text = Text(
+      widget.item.label,
+      overflow: TextOverflow.ellipsis,
+      style: widget.style?.copyWith(
+        color: routeName == null
+            ? colorScheme.onSurfaceVariant
+            : colorScheme.primary,
+      ),
+    );
+
+    if (routeName == null) {
+      return text;
+    }
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() {
+        _isHovered = true;
+      }),
+      onExit: (_) => setState(() {
+        _isHovered = false;
+      }),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => Navigator.pushNamedAndRemoveUntil(
+          context,
+          routeName,
+          routeName == '/notification/home'
+              ? (route) => false
+              : (route) => true,
+        ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? colorScheme.primary.withValues(alpha: 0.12)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: text,
+        ),
+      ),
+    );
+  }
 }
 
 class NotificationSchedule {
@@ -1287,7 +1397,10 @@ class ModeSwitchRequestPage extends StatelessWidget {
       appBar: _breadcrumbAppBar(
         context,
         title: '報告支援モード切り替え申請',
-        breadcrumbs: const ['通知モードホーム', '報告支援モード切り替え申請'],
+        breadcrumbs: const [
+          BreadcrumbItem(label: '通知モードホーム', routeName: '/notification/home'),
+          BreadcrumbItem(label: '報告支援モード切り替え申請'),
+        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -1351,7 +1464,12 @@ class ModeSwitchPendingPage extends StatelessWidget {
       appBar: _breadcrumbAppBar(
         context,
         title: '切り替え申請中',
-        breadcrumbs: const ['通知モードホーム', '報告支援モード切り替え申請', '申請中'],
+        breadcrumbs: const [
+          BreadcrumbItem(label: '通知モードホーム', routeName: '/notification/home'),
+          BreadcrumbItem(
+              label: '報告支援モード切り替え申請', routeName: '/notification/mode-switch'),
+          BreadcrumbItem(label: '申請中'),
+        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -1387,7 +1505,12 @@ class ModeSwitchRejectedPage extends StatelessWidget {
       appBar: _breadcrumbAppBar(
         context,
         title: '切り替え申請却下',
-        breadcrumbs: const ['通知モードホーム', '報告支援モード切り替え申請', '却下'],
+        breadcrumbs: const [
+          BreadcrumbItem(label: '通知モードホーム', routeName: '/notification/home'),
+          BreadcrumbItem(
+              label: '報告支援モード切り替え申請', routeName: '/notification/mode-switch'),
+          BreadcrumbItem(label: '却下'),
+        ],
       ),
       body: SafeArea(
         child: ListView(
