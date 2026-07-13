@@ -2,6 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:horen_check/main.dart';
 
+class RecordingRegistrationClient implements RegistrationClient {
+  String? name;
+  String? email;
+  String? password;
+
+  @override
+  Future<void> registerNotificationMode({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    this.name = name;
+    this.email = email;
+    this.password = password;
+  }
+}
+
 void main() {
   testWidgets('renders notification mode registration flow', (tester) async {
     await tester.pumpWidget(const HorenCheckApp());
@@ -15,6 +32,23 @@ void main() {
     expect(find.text('登録する'), findsOneWidget);
     expect(find.text('通知許可'), findsOneWidget);
     expect(find.text('初期通知確認'), findsOneWidget);
+    expect(find.text('通知モードホーム'), findsOneWidget);
+  });
+
+  testWidgets('register button calls API client and opens notification home', (tester) async {
+    final registrationClient = RecordingRegistrationClient();
+    await tester.pumpWidget(HorenCheckApp(registrationClient: registrationClient));
+
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), 'Worker One');
+    await tester.enterText(fields.at(1), 'worker@example.com');
+    await tester.enterText(fields.at(2), 'Password!1');
+    await tester.tap(find.widgetWithText(FilledButton, '登録する'));
+    await tester.pumpAndSettle();
+
+    expect(registrationClient.name, 'Worker One');
+    expect(registrationClient.email, 'worker@example.com');
+    expect(registrationClient.password, 'Password!1');
     expect(find.text('通知モードホーム'), findsOneWidget);
   });
 

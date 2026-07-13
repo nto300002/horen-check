@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const ProviderScope(child: HorenCheckApp()));
@@ -9,18 +12,26 @@ class HorenCheckApp extends StatelessWidget {
   const HorenCheckApp({
     super.key,
     this.initialRoute = '/',
+    this.registrationClient,
   });
 
   final String initialRoute;
+  final RegistrationClient? registrationClient;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'ホウレンチェック',
       initialRoute: initialRoute,
-      onGenerateRoute: _buildRoute,
+      onGenerateRoute: (settings) => _buildRoute(
+        settings,
+        registrationClient ?? const HttpRegistrationClient(),
+      ),
       onGenerateInitialRoutes: (initialRoute) => [
-        _buildRoute(RouteSettings(name: initialRoute)),
+        _buildRoute(
+          RouteSettings(name: initialRoute),
+          registrationClient ?? const HttpRegistrationClient(),
+        ),
       ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -32,11 +43,52 @@ class HorenCheckApp extends StatelessWidget {
   }
 }
 
-Route<void> _buildRoute(RouteSettings settings) {
+abstract class RegistrationClient {
+  Future<void> registerNotificationMode({
+    required String name,
+    required String email,
+    required String password,
+  });
+}
+
+class HttpRegistrationClient implements RegistrationClient {
+  const HttpRegistrationClient({
+    this.apiBaseUrl = 'http://127.0.0.1:5001',
+  });
+
+  final String apiBaseUrl;
+
+  @override
+  Future<void> registerNotificationMode({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$apiBaseUrl/api/notification-users'),
+      headers: const {
+        'content-type': 'application/json',
+      },
+      body: jsonEncode({
+        'name': name,
+        'email': email,
+        'password': password,
+      }),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('registration failed: ${response.statusCode}');
+    }
+  }
+}
+
+Route<void> _buildRoute(
+  RouteSettings settings,
+  RegistrationClient registrationClient,
+) {
   final name = settings.name ?? '/';
 
   if (name == '/') {
-    return _pageRoute(settings, const RegisterPage());
+    return _pageRoute(settings, RegisterPage(registrationClient: registrationClient));
   }
   if (name == '/notification/home') {
     return _pageRoute(settings, const NotificationHomePage());
@@ -609,7 +661,12 @@ const employmentTransitions = [
 ];
 
 class RegisterPage extends StatelessWidget {
-  const RegisterPage({super.key});
+  const RegisterPage({
+    super.key,
+    required this.registrationClient,
+  });
+
+  final RegistrationClient registrationClient;
 
   @override
   Widget build(BuildContext context) {
@@ -617,28 +674,28 @@ class RegisterPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('ホウレンチェック'),
       ),
-      body: const SafeArea(
+      body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
+              const Text(
                 '通知モード新規登録',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              SizedBox(height: 12),
-              Text(
+              const SizedBox(height: 12),
+              const Text(
                 'まずは自分だけで通知を使えます。',
                 style: TextStyle(fontSize: 16, height: 1.6),
               ),
-              SizedBox(height: 24),
-              _RegistrationForm(),
-              SizedBox(height: 24),
-              _InitialNotificationPreview(),
+              const SizedBox(height: 24),
+              _RegistrationForm(registrationClient: registrationClient),
+              const SizedBox(height: 24),
+              const _InitialNotificationPreview(),
             ],
           ),
         ),
@@ -647,41 +704,116 @@ class RegisterPage extends StatelessWidget {
   }
 }
 
-class _RegistrationForm extends StatelessWidget {
-  const _RegistrationForm();
+class _RegistrationForm extends StatefulWidget {
+  const _RegistrationForm({
+    required this.registrationClient,
+  });
+
+  final RegistrationClient registrationClient;
+
+  @override
+  State<_RegistrationForm> createState() => _RegistrationFormState();
+}
+
+class _RegistrationFormState extends State<_RegistrationForm> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    if (name.isEmpty || email.isEmpty || password.isEmpty) {
+      setState(() {
+        _errorMessage = '名前、メールアドレス、パスワードを入力してください。';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await widget.registrationClient.registerNotificationMode(
+        name: name,
+        email: email,
+        password: password,
+      );
+      if (!mounted) {
+        return;
+      }
+      Navigator.pushReplacementNamed(context, '/notification/home');
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _errorMessage = '登録に失敗しました。APIサーバーの起動状態を確認してください。';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const TextField(
-          decoration: InputDecoration(
+        TextField(
+          controller: _nameController,
+          decoration: const InputDecoration(
             labelText: '名前',
             border: OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 12),
-        const TextField(
-          decoration: InputDecoration(
+        TextField(
+          controller: _emailController,
+          decoration: const InputDecoration(
             labelText: 'メールアドレス',
             border: OutlineInputBorder(),
           ),
           keyboardType: TextInputType.emailAddress,
         ),
         const SizedBox(height: 12),
-        const TextField(
-          decoration: InputDecoration(
+        TextField(
+          controller: _passwordController,
+          decoration: const InputDecoration(
             labelText: 'パスワード',
             border: OutlineInputBorder(),
           ),
           obscureText: true,
         ),
         const SizedBox(height: 16),
+        if (_errorMessage != null) ...[
+          Text(
+            _errorMessage!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          const SizedBox(height: 12),
+        ],
         FilledButton.icon(
-          onPressed: () {},
+          onPressed: _isSubmitting ? null : _submit,
           icon: const Icon(Icons.person_add_alt_1),
-          label: const Text('登録する'),
+          label: Text(_isSubmitting ? '登録中' : '登録する'),
         ),
         TextButton(
           onPressed: () {},
