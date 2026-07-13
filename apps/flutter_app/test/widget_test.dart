@@ -380,7 +380,7 @@ void main() {
     expect(find.textContaining('本日は在庫確認に取り組みます。'), findsOneWidget);
 
     await tester.scrollUntilVisible(
-      find.text('送信先確認').first,
+      find.text('送信先確認'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
@@ -403,7 +403,7 @@ void main() {
 
     expect(find.text('プライバシーポリシー'), findsOneWidget);
     expect(find.textContaining('診断支援、医療情報管理、勤怠管理、人事評価を目的としません'), findsOneWidget);
-    expect(find.textContaining('問い合わせ窓口'), findsOneWidget);
+    expect(find.text('問い合わせ窓口: support@example.com'), findsOneWidget);
 
     await tester.pumpWidget(HorenCheckApp(
       key: UniqueKey(),

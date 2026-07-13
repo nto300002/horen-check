@@ -2629,10 +2629,10 @@ class PrivacyPolicyPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('プライバシーポリシー'),
       ),
-      body: const SafeArea(
+      body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.all(20),
-          children: [
+          padding: const EdgeInsets.all(20),
+          children: const [
             _SectionTitle('利用目的'),
             Text('ホウレンチェックは、報告タイミングの通知、報告文作成支援、報連相支援、一般就労移行および定着支援のために必要な情報を扱います。診断支援、医療情報管理、勤怠管理、人事評価を目的としません。'),
             SizedBox(height: 16),
@@ -2657,10 +2657,10 @@ class TermsOfServicePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('利用規約'),
       ),
-      body: const SafeArea(
+      body: SafeArea(
         child: ListView(
-          padding: EdgeInsets.all(20),
-          children: [
+          padding: const EdgeInsets.all(20),
+          children: const [
             _SectionTitle('サービスの位置づけ'),
             Text('本サービスは報連相支援ツールです。勤怠管理、給与管理、人事評価、医療情報管理、障害情報管理、診断支援には使用しません。'),
             SizedBox(height: 16),
